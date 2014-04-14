@@ -145,7 +145,7 @@ void externalSort(int fdInput, uint64_t size, int fdOutput, uint64_t memSize) {
             queue.push(mergeItem{value, top.srcIndex});
         } else {
             cout << "merged all data from chunk #" << top.srcIndex << endl;
-            fclose(srcFile);
+            fclose(chunkFiles[top.srcIndex]);
         }
     }
 }
