@@ -25,7 +25,7 @@ struct fileBuffer {
     FILE*    srcFile;
     T*       buffer;
     uint64_t length;
-    uint64_t remaining;
+    uint64_t index;
 };
 
 void externalSort(int fdInput, uint64_t size, int fdOutput, uint64_t memSize) {
@@ -118,15 +118,14 @@ void externalSort(int fdInput, uint64_t size, int fdOutput, uint64_t memSize) {
 
     for(uint64_t i=0; i < numChunks; i++) {
         fileBuffer<uint64_t> buf = {
-            chunkFiles[i],      /* srcFile   */
-            &memBuf[i*bufSize], /* buffer    */
-            bufSize,            /* length    */
-            chunkSize           /* remaining */
+            chunkFiles[i],      /* srcFile */
+            &memBuf[i*bufSize], /* buffer  */
+            bufSize,            /* length  */
+            0                   /* index   */
         };
-        inBufs.push_back(buf);
 
-        rewind(chunkFiles[i]);
-        if(fread(buf.buffer, sizeof(uint64_t), 1, buf.srcFile) != 1) {
+        rewind(buf.srcFile);
+        if(fread(buf.buffer, sizeof(uint64_t), bufSize, buf.srcFile) != bufSize) {
             cerr << "Reading values from tmp chunk file #" << i << " failed: ";
             if(feof(buf.srcFile))
                 cerr << "unexpected EOF!" << endl;
@@ -135,26 +134,60 @@ void externalSort(int fdInput, uint64_t size, int fdOutput, uint64_t memSize) {
             return;
         }
         queue.push(mergeItem{buf.buffer[0], i});
+        buf.index++;
+        buf.length--;
+
+        inBufs.push_back(buf);
     }
 
     // output buffer
-    //uint64_t* outBuf = &memBuf[numChunks*bufSize];
+    uint64_t* outBuf = &memBuf[numChunks*bufSize];
+    uint64_t outLength = 0;
 
     // TODO: actually use the out buffer
     while(!queue.empty()) {
+        // put min item in buffer
         mergeItem top = queue.top();
         queue.pop();
-        write(fdOutput, &(top.value), sizeof(uint64_t));
+        outBuf[outLength] = top.value;
+        outLength++;
 
-        uint64_t value;
-        if(fread(&value, sizeof(uint64_t), 1, chunkFiles[top.srcIndex]) == 1) {
-            queue.push(mergeItem{value, top.srcIndex});
-        } else {
-            fclose(chunkFiles[top.srcIndex]);
-
-        #ifdef DEBUG
-            cout << "merged all data from chunk #" << top.srcIndex << endl;
-        #endif
+        // flush buffer to file, if buffer is full
+        if(outLength == bufSize-1) {
+            if(write(fdOutput, outBuf, outLength*sizeof(uint64_t)) != (ssize_t)(outLength*sizeof(uint64_t)))
+                cerr << "Writing to out file failed!" << endl;
+            outLength = 0;
         }
+
+        // refill input buffer, from which the value was taken
+        // if length == 0 then the chunk was completely read
+        fileBuffer<uint64_t>& srcBuf = inBufs[top.srcIndex];
+        if(srcBuf.length > 0) {
+            queue.push(mergeItem{srcBuf.buffer[srcBuf.index], top.srcIndex});
+            srcBuf.index++;
+            srcBuf.length--;
+            if(srcBuf.length == 0) {
+            #ifdef DEBUG
+                cout << "refilling inBuf #" << top.srcIndex << endl;
+            #endif
+
+                srcBuf.index = 0;
+                srcBuf.length = fread(srcBuf.buffer, sizeof(uint64_t), bufSize, srcBuf.srcFile);
+
+                // Close the file stream when it is completely read
+                if(srcBuf.length < bufSize) {
+                    fclose(srcBuf.srcFile);
+                #ifdef DEBUG
+                    cout << "merged all data from chunk #" << top.srcIndex << endl;
+                #endif
+                }
+            }
+        }
+    }
+
+    // flush rest, if output buffer is not already empty
+    if(outLength > 0) {
+        if(write(fdOutput, outBuf, outLength*sizeof(uint64_t)) != (ssize_t)(outLength*sizeof(uint64_t)))
+            cerr << "Writing to out file failed!" << endl;
     }
 }
