@@ -110,7 +110,7 @@ void externalSort(int fdInput, uint64_t size, int fdOutput, uint64_t memSize) {
 
     // We reuse the already allocated memory from the memBuf and split the
     // available memory between numChunks chunk buffers and 1 output buffer.
-    const size_t bufSize = memSize/((numChunks+1)*sizeof(uint64_t));
+    const size_t bufSize = chunkSize/(numChunks+1);
 
     // input buffers (from chunks)
     vector<fileBuffer<uint64_t>> inBufs;
