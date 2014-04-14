@@ -60,7 +60,7 @@ void externalSort(int fdInput, uint64_t size, int fdOutput, uint64_t memSize) {
     chunkFiles.reserve(numChunks);
 
     vector<uint64_t> memBuf;
-    memBuf.reserve(chunkSize);
+    memBuf.resize(chunkSize);
 
     for(uint64_t i=0; i < numChunks; i++) {
         // read one chunk of input into memory
