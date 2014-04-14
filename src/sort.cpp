@@ -7,6 +7,8 @@
 
 #include "sort.hpp"
 
+//#define DEBUG 1
+
 using namespace std;
 
 struct mergeItem {
@@ -52,9 +54,11 @@ void externalSort(int fdInput, uint64_t size, int fdOutput, uint64_t memSize) {
     // number of chunks we must split the input into
     const uint64_t numChunks = (size + chunkSize-1) / chunkSize;
 
+#ifdef DEBUG
     cout << "filesize: " << (size*sizeof(uint64_t)) <<
     " B, memSize: " << memSize <<
     " B, chunkSize: " << chunkSize << ", numChunks: " << numChunks << endl;
+#endif
 
     vector<FILE*> chunkFiles;
     chunkFiles.reserve(numChunks);
@@ -70,7 +74,10 @@ void externalSort(int fdInput, uint64_t size, int fdOutput, uint64_t memSize) {
             memBuf.resize(valuesToRead);
         }
         size_t bytesToRead = valuesToRead * sizeof(uint64_t);
+
+    #ifdef DEBUG
         cout << "chunk #" << i << " bytesToRead: " << bytesToRead << endl;
+    #endif
 
         if(read(fdInput, &memBuf[0], bytesToRead) != (ssize_t)bytesToRead) {
             perror("Reading chunk of input failed");
@@ -103,11 +110,7 @@ void externalSort(int fdInput, uint64_t size, int fdOutput, uint64_t memSize) {
 
     // We reuse the already allocated memory from the memBuf and split the
     // available memory between numChunks chunk buffers and 1 output buffer.
-    const size_t bufSize  = memSize/((numChunks+1)*sizeof(uint64_t));
-    const size_t bufBytes = bufSize*sizeof(uint64_t);
-
-    // output buffer
-    //uint64_t* outBuf = &memBuf[0];
+    const size_t bufSize = memSize/((numChunks+1)*sizeof(uint64_t));
 
     // input buffers (from chunks)
     vector<fileBuffer<uint64_t>> inBufs;
@@ -115,24 +118,27 @@ void externalSort(int fdInput, uint64_t size, int fdOutput, uint64_t memSize) {
 
     for(uint64_t i=0; i < numChunks; i++) {
         fileBuffer<uint64_t> buf = {
-            chunkFiles[i],       /* srcFile   */
-            &memBuf[i*bufBytes], /* buffer    */
-            bufSize,             /* length    */
-            chunkSize            /* remaining */
+            chunkFiles[i],      /* srcFile   */
+            &memBuf[i*bufSize], /* buffer    */
+            bufSize,            /* length    */
+            chunkSize           /* remaining */
         };
         inBufs.push_back(buf);
 
         rewind(chunkFiles[i]);
-        if(fread(&memBuf[0]+i*bufBytes, sizeof(uint64_t), 1, chunkFiles[i]) != 1) {
-            cerr << "Reading values from tmp chunk file #" << i << " failed, ";
-            if(feof(chunkFiles[i]))
-                cerr << "file is too short!" << endl;
+        if(fread(buf.buffer, sizeof(uint64_t), 1, buf.srcFile) != 1) {
+            cerr << "Reading values from tmp chunk file #" << i << " failed: ";
+            if(feof(buf.srcFile))
+                cerr << "unexpected EOF!" << endl;
             else
                 cerr << "unknown error!" << endl;
             return;
         }
         queue.push(mergeItem{buf.buffer[0], i});
     }
+
+    // output buffer
+    //uint64_t* outBuf = &memBuf[numChunks*bufSize];
 
     // TODO: actually use the out buffer
     while(!queue.empty()) {
@@ -144,8 +150,11 @@ void externalSort(int fdInput, uint64_t size, int fdOutput, uint64_t memSize) {
         if(fread(&value, sizeof(uint64_t), 1, chunkFiles[top.srcIndex]) == 1) {
             queue.push(mergeItem{value, top.srcIndex});
         } else {
-            cout << "merged all data from chunk #" << top.srcIndex << endl;
             fclose(chunkFiles[top.srcIndex]);
+
+        #ifdef DEBUG
+            cout << "merged all data from chunk #" << top.srcIndex << endl;
+        #endif
         }
     }
 }
