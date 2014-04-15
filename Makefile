@@ -1,5 +1,5 @@
 CC      = clang++
-CFLAGS  = -std=c++11 -march=native -O3 -Weverything -Wno-c++98-compat -Werror
+CFLAGS  = -std=c++11 -march=native -O3 -Weverything -Wno-c++98-compat
 
 all: clean sort
 
