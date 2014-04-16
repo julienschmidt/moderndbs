@@ -13,6 +13,6 @@ $ ./bin/sort <inputFile> <outputFile> <memoryBufferInMiB>
 For example:
 ```bash
 $ make
-$ ./bin/sort ./test/test_4MiB ./out 1
+$ ./bin/sort ./test/data/test_4MiB ./out 1
 ```
 
