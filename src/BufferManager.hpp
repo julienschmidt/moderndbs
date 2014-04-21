@@ -17,7 +17,7 @@ class BufferManager
     /**
 	 * Copy-Konstruktor
 	 */
-    BufferManager(const BufferManager& a);   // Copy-Konstruktor
+    BufferManager(const BufferManager& a);
 	
 	/**
 	 * Destructor. Write all dirty frames to disk and free all resources
@@ -34,8 +34,12 @@ class BufferManager
   private:
     int size;
 	
-	//TODO
-	//Hashtable mit allen Frames
+	//TODO, initialize with "size" elements max
+	//Hashtable with all Frames	
+	std::unordered_map<uint64_t, BufferFrame> frames;
+	
+	
+	bool freeFrame();
 	
 };
 

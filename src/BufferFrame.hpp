@@ -5,12 +5,16 @@
 #include <pthread.h>  //for locks/latches
 
 //state clean/dirty/newly created etc.
-enum state_t {Clean, Dirty, New};
+enum state_t {
+	Clean, 	//Data loaded and no data changed
+	Dirty, 	//Data laoded and changed --> write it back
+	New		//No Data loaded
+};
 
 class BufferFrame
 {
   public:
-    BufferFrame();
+    BufferFrame(uint64_t pageNo);
     BufferFrame(const BufferFrame& a);
     ~BufferFrame();
  
@@ -19,10 +23,12 @@ class BufferFrame
 	 */
     void* getData();
 	
-	uint64_t getPageNo();
-	pthread_rwlock_t getLatch();
-	uint64_t getLsm();
-	state_t getState();
+	uint64_t getPageNo() { return pageNo; }
+	pthread_rwlock_t getLatch() { return latch; }
+	uint64_t getLsm() { return lsm; }
+	state_t getState() { return state; }
+	
+	void setStateDirty() { state = state_t::Dirty; }
  
   private:
     //the page number, 64 bit
@@ -41,7 +47,14 @@ class BufferFrame
 	state_t state;
 	
 	//Pointer to loaded data
-	void* data = NULL;
+	void* data;
+	
+	//filename and position in bytes
+	uint64_t filename;
+	uint64_t position;
+	
+	//blocksize in Byte
+	uint64_t blocksize;
 	
 	void* loadData();
 	void* readData();
