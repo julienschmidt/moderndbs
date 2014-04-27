@@ -4,6 +4,16 @@
 #include <assert.h>
 #include <pthread.h>
 
+#include "../src/BufferManager.hpp"
+
+#pragma GCC diagnostic ignored "-Wmissing-variable-declarations"
+#pragma GCC diagnostic ignored "-Wmissing-prototypes"
+#pragma GCC diagnostic ignored "-Wsign-conversion"
+#pragma GCC diagnostic ignored "-Wvla"
+#pragma GCC diagnostic ignored "-Wvla-extension"
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+#pragma GCC diagnostic ignored "-Wshorten-64-to-32"
+
 using namespace std;
 
 BufferManager* bm;
@@ -110,7 +120,7 @@ int main(int argc, char** argv) {
    // restart buffer manager
    delete bm;
    bm = new BufferManager(pagesInRAM);
-   
+
    // check counter
    unsigned totalCountOnDisk = 0;
    for (unsigned i=0; i<pagesOnDisk; i++) {
