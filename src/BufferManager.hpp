@@ -34,16 +34,22 @@ class BufferManager {
     void flush();
 
   private:
-    inline void rdlock() { pthread_rwlock_rdlock(&framesLatch); }
-    inline void wrlock() { pthread_rwlock_wrlock(&framesLatch); }
-    inline void unlock() { pthread_rwlock_unlock(&framesLatch); }
+    inline void rdlock() { pthread_rwlock_rdlock(&latch); }
+    inline void wrlock() { pthread_rwlock_wrlock(&latch); }
+    inline void unlock() { pthread_rwlock_unlock(&latch); }
 
-    pthread_rwlock_t framesLatch;
+    int getSegmentFd(unsigned segmentID);
+
+    // max number of buffered pages
+    unsigned maxSize;
+
+    pthread_rwlock_t latch;
 
 	// hashmap containing all frames
 	std::unordered_map<uint64_t, BufferFrame> frames;
 
-    unsigned maxSize;
+    // hashmap containing all file descriptors of segment files
+    std::unordered_map<unsigned, int> segments;
 };
 
 #endif  // BUFFERMANAGER_H_

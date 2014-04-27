@@ -1,4 +1,6 @@
 #include <iostream>
+#include <fcntl.h>
+#include <unistd.h>
 
 #include "BufferManager.hpp"
 
@@ -6,22 +8,30 @@
 
 BufferManager::BufferManager(unsigned size) {
     maxSize = size*10; // TODO: change back
-    pthread_rwlock_init(&framesLatch, NULL);
+    pthread_rwlock_init(&latch, NULL);
 
     frames.reserve(size);
 }
 
 BufferManager::~BufferManager() {
-    flush();
+    // wait until all tasks are finished
+    wrlock();
 
-    pthread_rwlock_destroy(&framesLatch);
+    pthread_rwlock_destroy(&latch);
+
+    // write dirty pages back to file
+    for (auto& kv: frames)
+        kv.second.flush();
+
+    // close segment file descriptors
+    for (auto& kv: segments)
+        close(kv.second);
 }
 
 
 BufferFrame& BufferManager::fixPage(uint64_t pageID, bool exclusive) {
     // acquire map lock
     rdlock();
-    //wrlock();
 
     BufferFrame* bf;
 
@@ -40,23 +50,26 @@ BufferFrame& BufferManager::fixPage(uint64_t pageID, bool exclusive) {
             std::cout << "buffer is full: size " << frames.size() << " maxSize " << maxSize << std::endl;
 
             // TODO: try to free frames
-            throw;
+            throw; // runtime_error("Could not find free frame");
         }
 
         // release read lock and get the write lock
         unlock();
         wrlock();
 
+        // page ID (64 bit):
+        //   first 16bit: segment (=filename)
+        //   48bit: actual page ID
+        int fd = getSegmentFd(pageID >> 48);
+        int pageNo = pageID & 0x0000FFFFFFFFFFFF;
+
         // create a new frame in the map (with key pageID)
         // we get a reference to the existing frame if another thread created it
         // in the meantime
-        auto ret = frames.emplace(pageID, pageID);
-        if (!ret.second) {
-            std::cerr << "frame could not be inserted!" << std::endl;
-            throw;
-        }
-
-        // reference of the newly inserted frame
+        auto ret = frames.emplace(std::piecewise_construct,
+              std::forward_as_tuple(pageID),
+              std::forward_as_tuple(fd, pageNo)
+        );
         bf = &ret.first->second;
     }
 
@@ -70,12 +83,35 @@ BufferFrame& BufferManager::fixPage(uint64_t pageID, bool exclusive) {
     return *bf;
 }
 
+// must be protected by locks
+int BufferManager::getSegmentFd(unsigned segmentID) {
+    int fd;
+
+    // check if the fd was already created
+    try {
+        fd = segments.at(segmentID);
+        std::cout << "fd " << segmentID << " from buffer" << std::endl;
+    } catch (const std::out_of_range) {
+        // must create a new one
+
+        char filename[255];
+        sprintf(filename, "%d", segmentID);
+
+        fd = open(filename, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR); // | O_NOATIME | O_SYNC
+        if (fd < 0) {
+            perror("opening the segment file failed");
+            throw; // TODO: useful exception
+        }
+
+        segments[segmentID] = fd;
+
+        std::cout << "fd " << segmentID << " created" << std::endl;
+    }
+
+    return fd;
+}
 
 void BufferManager::unfixPage(BufferFrame& frame, bool isDirty) {
-    //std::cout << "::unfixPage([";
-    //frame.print();
-    //std::cout <<"],"<<isDirty<<")"<<std::endl;
-
     if(isDirty)
         frame.markDirty();
 
@@ -84,10 +120,3 @@ void BufferManager::unfixPage(BufferFrame& frame, bool isDirty) {
     // release the lock on the frame
     frame.unlock();
 }
-
-
-void BufferManager::flush() {
-    std::cout << "::flush()"<<std::endl;
-    // TODO: write all dirty pages
-}
-

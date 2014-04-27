@@ -1,42 +1,28 @@
 #include <iostream>
 #include <pthread.h>
+#include <unistd.h>
 
 #include "BufferFrame.hpp"
 
 #define DEBUG
 
-BufferFrame::BufferFrame(uint64_t pageID) {
-    id = pageID;
-
+BufferFrame::BufferFrame(int segmentFd, unsigned pageNo) {
     pthread_rwlock_init(&rwlock, NULL);
 
-    this->state = state_t::New;
-
-    // page ID (64 bit):
-    //   first 16bit: segment (=filename)
-    //   48bit: actual page ID
-    filename = pageID >> 48;
-
-    std::cout << "make frame with pageID " << pageID << "; filename " << filename << std::endl;
-
-    // blocksize * realPageNo (realPageNo=0,1,2,...)
-    offset = blocksize * (pageID & 0x0000FFFFFFFFFFFF);
+    state  = state_t::New;
+    offset = blocksize * pageNo;
+    fd     = segmentFd;
 }
 
 BufferFrame::~BufferFrame() {
-    //pthread_rwlock_destroy(&rwlock);
+    lock(true); // get exclusive lock / wait until all tasks are finished
+    pthread_rwlock_destroy(&rwlock);
 
-    // write all changes, if page is dirty
-    if (state == state_t::Dirty)
-        writeData();
+    flush();
 
     // deallocate data, if necessary
-    //if (data != NULL)   // == state != state_t::New
-    //    free data;
-}
-
-void BufferFrame::print() {
-    std::cout << id <<  " filename: " << filename << " state: " << state;
+    if (data != NULL)
+        free(data);
 }
 
 void BufferFrame::lock(bool exclusive) {
@@ -52,11 +38,17 @@ void BufferFrame::unlock() {
 
 
 void* BufferFrame::getData() {
-    // load data, if not already loaded (don't load on Clean, Dirty)
+    // load data, if not already loaded
     if (state == state_t::New)
         loadData();
 
     return data;
+}
+
+void BufferFrame::flush() {
+    // write all changes, if page is dirty
+    if (state == state_t::Dirty)
+        writeData();
 }
 
 // load data from disk
@@ -65,22 +57,21 @@ void BufferFrame::loadData() {
     if (state == state_t::Dirty)
         std::cout << "WARNING: Data loss on load? (state == Dirty)" << std::endl;
     else if (state == state_t::Clean)
-        std::cout << "WARNING: Unnecessary data load (state == Dirty)" << std::endl;
+        std::cout << "WARNING: Unnecessary data load (state == Clean)" << std::endl;
 #endif
 
-    //load from file filename
-    //at position
-    //with pread
-    //TODO
-    std::cout << "TODO: Load data from file " << filename << " at " << offset << "Bytes" << std::endl;
+    // in-memory buffer
     data = malloc(blocksize);
+
+    // read data from file to buffer
+    pread(fd, data, blocksize, offset);
 
     state = state_t::Clean;
 }
 
-//TODO
 void BufferFrame::writeData() {
-    std::cout << "TODO: Write data to file " << filename << " at " << offset << "Bytes" << std::endl;
+    // write data back to file on disk
+    pwrite(fd, data, blocksize, offset);
 
     state = state_t::Clean;
 }
