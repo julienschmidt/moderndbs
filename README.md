@@ -38,4 +38,4 @@ The following adjustments to the buffer test were made:
 
 The Buffer Manager uses a LRU frame replacement strategy.
 
-Since asynchronous write back does not need to be implemented at this point, pages are only written back when the BufferManager or the respective BufferFrames are destructed. Moreover `flush() can be called manually on BufferFrames to write back the data.
+Since asynchronous write back does not need to be implemented at this point, pages are only written back when the BufferManager or the respective BufferFrames are destructed. Moreover `flush()` can be called manually on BufferFrames to write back the data.
