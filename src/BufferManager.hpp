@@ -59,7 +59,6 @@ class BufferManager {
     pthread_mutex_t lruMutex;
     BufferFrame* lru;
     BufferFrame* mru;
-    int lruLength;
 };
 
 #endif  // BUFFERMANAGER_H_

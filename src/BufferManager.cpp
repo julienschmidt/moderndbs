@@ -15,7 +15,6 @@ BufferManager::BufferManager(unsigned size) {
     // LRU
     pthread_mutex_init(&lruMutex, NULL);
     lru = mru = NULL;
-    lruLength = 0;
 }
 
 BufferManager::~BufferManager() {
@@ -143,31 +142,15 @@ void BufferManager::unfixPage(BufferFrame& frame, bool isDirty) {
 void BufferManager::putLRU(BufferFrame* fp) {
     pthread_mutex_lock(&lruMutex);
 
-    fp->currentUsers--;
-    if(fp->currentUsers == 0) {
+    // only insert into the list if no other user has still fixed this frame
+    if((--fp->currentUsers) == 0) {
         if(mru == NULL) {
-            if(lru != NULL) {
-                std::cerr << "mru NULL and lru not" << std::endl;
-                exit(1);
-            }
-
-            mru = fp;
             lru = fp;
-        } else if(lru == NULL) {
-            std::cerr << "lru NULL and mru not" << std::endl;
-            exit(1);
         } else {
             fp->prev  = mru;
             mru->next = fp;
-            mru = fp;
         }
-
-        lruLength++;
-
-        if (lruLength > (int)maxSize) {
-            std::cerr << "LRU too long! " << lruLength << std::endl;
-            exit(1);
-        }
+        mru = fp;
     }
 
     pthread_mutex_unlock(&lruMutex);
@@ -177,9 +160,9 @@ void BufferManager::putLRU(BufferFrame* fp) {
 void BufferManager::removeLRU(BufferFrame* fp) {
     pthread_mutex_lock(&lruMutex);
 
+    // only try to remove this frame from the LRU list if no other user has this
+    // frame currently fixed (already removed)
     if(fp->currentUsers++ == 0) {
-        lruLength--;
-
         if (fp->prev != NULL)
             fp->prev->next = fp->next;
 
@@ -203,29 +186,14 @@ BufferFrame* BufferManager::popLRU() {
     pthread_mutex_lock(&lruMutex);
 
     BufferFrame* ret = lru;
-    if(lru == NULL) {
-        if(mru != NULL) {
-            std::cerr << "lru NULL and mru not" << std::endl;
-            exit(1);
-        }
-    } else if(mru == NULL) {
-        std::cerr << "mru NULL and lru not" << std::endl;
-        exit(1);
-    } else {
+    if(lru != NULL) {
         lru = ret->next;
         ret->next = NULL;
 
-        if(lru != NULL) {
+        if(lru != NULL)
             lru->prev = NULL;
-        } else {
-            if(mru != ret) {
-                std::cerr << " mru!=ret " << mru << " != " << ret << std::endl;
-                exit(1);
-            }
+        else
             mru = NULL;
-        }
-
-        lruLength--;
     }
 
     pthread_mutex_unlock(&lruMutex);
