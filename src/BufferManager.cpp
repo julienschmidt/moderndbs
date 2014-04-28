@@ -1,20 +1,21 @@
 #include <iostream>
 #include <fcntl.h>
 #include <stdexcept>
+#include <tuple>
 #include <unistd.h>
 
 #include "BufferManager.hpp"
 
-#define DEBUG
-
 BufferManager::BufferManager(unsigned size) {
-    maxSize = size; // TODO: change back
+    maxSize = size;
     pthread_rwlock_init(&latch, NULL);
 
     frames.reserve(size);
 
+    // LRU
     pthread_mutex_init(&lruMutex, NULL);
     lru = mru = NULL;
+    lruLength = 0;
 }
 
 BufferManager::~BufferManager() {
@@ -36,7 +37,6 @@ BufferManager::~BufferManager() {
 
 
 BufferFrame& BufferManager::fixPage(uint64_t pageID, bool exclusive) {
-    std::cout << "fix " << pageID << std::endl;
     // acquire map lock
     rdlock();
 
@@ -45,62 +45,55 @@ BufferFrame& BufferManager::fixPage(uint64_t pageID, bool exclusive) {
     // check whether the page is already buffered
     try {
         bf = &frames.at(pageID);
+
+        // remove frame from LRU list
+        removeLRU(bf);
     } catch (const std::out_of_range) {
         // frame is not buffered, try to buffer it
 
-    #ifdef DEBUG
-        std::cout << "page " << pageID << " not buffered; map size: " << frames.size() << std::endl;
-    #endif
-
         // release read lock and get the write lock
-        std::cout << "lockswap un " << pageID << std::endl;
         unlock();
-        std::cout << "lockswap wr " << pageID << std::endl;
         wrlock();
-        std::cout << "lockswapped " << pageID << std::endl;
 
-        // check whether the the buffer is full
-        if (frames.size() >= maxSize) {
-            std::cout << "buffer is full: size " << frames.size() << " maxSize " << maxSize << std::endl;
+        // check whether the page was loaded in the meantime
+        try {
+            bf = &frames.at(pageID);
 
-            std::cout << "popLRU " << pageID << std::endl;
-            BufferFrame* victim = popLRU();
-            std::cout << "poppedLRU " << pageID << std::endl;
-            if (victim == NULL) // LRU list is empty
-                throw std::runtime_error("could not find free frame");
+            // remove frame from LRU list
+            removeLRU(bf);
+        } catch (const std::out_of_range) {
+            // check whether the the buffer is full and we need to unload a frame
+            if (frames.size() >= maxSize) {
+                // select the LRU frame as our unload victim
+                BufferFrame* victim = popLRU();
+                if (victim == NULL) { // LRU list is empty
+                    throw std::runtime_error("could not find free frame");
+                }
 
-            // TODO: remove victim
-            std::cout << "erase " << victim->id << std::endl;
-            frames.erase(victim->id);
-            std::cout << "erased" << std::endl;
+                frames.erase(victim->id);
+            }
+
+            // page ID (64 bit):
+            //   first 16bit: segment (=filename)
+            //   48bit: actual page ID
+            int fd = getSegmentFd(pageID >> 48);
+
+            // create a new frame in the map (with key pageID)
+            auto ret = frames.emplace(std::piecewise_construct,
+                  std::forward_as_tuple(pageID),
+                  std::forward_as_tuple(fd, pageID)
+            );
+            bf = &ret.first->second;
+
+            bf->currentUsers++;
         }
-
-        // page ID (64 bit):
-        //   first 16bit: segment (=filename)
-        //   48bit: actual page ID
-        int fd = getSegmentFd(pageID >> 48);
-
-        // create a new frame in the map (with key pageID)
-        // we get a reference to the existing frame if another thread created it
-        // in the meantime
-        auto ret = frames.emplace(std::piecewise_construct,
-              std::forward_as_tuple(pageID),
-              std::forward_as_tuple(fd, pageID)
-        );
-        bf = &ret.first->second;
     }
 
     // release the lock on the map
     unlock();
 
-    std::cout << ">> bf lock " << bf->id << " excl: " << exclusive << std::endl;
     // acquire lock on the frame
     bf->lock(exclusive);
-    std::cout << "bf locked" << std::endl;
-
-    // remove from LRU list
-    removeLRU(bf);
-    std::cout << "bf removed from LRU" << std::endl;
 
     // return frame reference
     return *bf;
@@ -113,7 +106,6 @@ int BufferManager::getSegmentFd(unsigned segmentID) {
     // check if the file descriptor was already created
     try {
         fd = segments.at(segmentID);
-        std::cout << "fd " << segmentID << " from buffer" << std::endl;
     } catch (const std::out_of_range) {
         // must create a new one
 
@@ -121,100 +113,122 @@ int BufferManager::getSegmentFd(unsigned segmentID) {
         char filename[15];
         sprintf(filename, "%d", segmentID);
 
+        // open the segment file
         fd = open(filename, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR); // | O_NOATIME | O_SYNC
         if (fd < 0) {
-            perror("opening the segment file failed");
-            throw; // TODO: useful exception
+            throw std::runtime_error(std::strerror(errno));
         }
 
+        // save the fd to cache and share it
         segments[segmentID] = fd;
-
-        std::cout << "fd " << segmentID << " created" << std::endl;
     }
 
     return fd;
 }
 
 void BufferManager::unfixPage(BufferFrame& frame, bool isDirty) {
-    std::cout << "unfix " << frame.id << std::endl;
-
     if(isDirty)
         frame.markDirty();
 
     // TODO: flush to file?
     //frame.flush();
 
-    std::cout << "putLRU " << frame.id << std::endl;
-    putLRU(&frame);
-    std::cout << "puttedLRU " << frame.id << std::endl;
-
     // release the lock on the frame
     frame.unlock();
-    std::cout << "<< unlocked " << frame.id << std::endl;
+
+    putLRU(&frame);
 }
 
 // insert item at the end of the LRU list (MRU)
 void BufferManager::putLRU(BufferFrame* fp) {
     pthread_mutex_lock(&lruMutex);
 
-    std::cout << "putLRU locked " << fp->id << std::endl;
+    fp->currentUsers--;
+    if(fp->currentUsers == 0) {
+        if(mru == NULL) {
+            if(lru != NULL) {
+                std::cerr << "mru NULL and lru not" << std::endl;
+                exit(1);
+            }
 
-    if (mru != NULL) {
-        mru->next = fp;
-        fp->prev = mru;
-    } else { // lru == NULL
-        lru = fp;
+            mru = fp;
+            lru = fp;
+        } else if(lru == NULL) {
+            std::cerr << "lru NULL and mru not" << std::endl;
+            exit(1);
+        } else {
+            fp->prev  = mru;
+            mru->next = fp;
+            mru = fp;
+        }
+
+        lruLength++;
+
+        if (lruLength > (int)maxSize) {
+            std::cerr << "LRU too long! " << lruLength << std::endl;
+            exit(1);
+        }
     }
 
-    mru = fp;
-
     pthread_mutex_unlock(&lruMutex);
-
-    std::cout << "putLRU unlocked " << fp->id << std::endl;
 }
 
 // remove item from the LRU list
 void BufferManager::removeLRU(BufferFrame* fp) {
     pthread_mutex_lock(&lruMutex);
 
-    std::cout << "removeLRU locked " << fp->id << std::endl;
+    if(fp->currentUsers++ == 0) {
+        lruLength--;
 
-    if (fp->prev != NULL)
-        fp->prev->next = fp->next;
+        if (fp->prev != NULL)
+            fp->prev->next = fp->next;
 
-    if (fp->next != NULL)
-        fp->next->prev = fp->prev;
+        if (fp->next != NULL)
+            fp->next->prev = fp->prev;
 
-    if (lru == fp)
-        lru = fp->next;
+        if (lru == fp)
+            lru = fp->next;
 
-    if (mru == fp)
-        mru = fp->prev;
+        if (mru == fp)
+            mru = fp->prev;
 
-    fp->next = fp->prev = NULL;
+        fp->next = fp->prev = NULL;
+    }
 
     pthread_mutex_unlock(&lruMutex);
-
-    std::cout << "removeLRU unlocked " << fp->id << std::endl;
 }
 
 // get and remove the LRU item from the list
 BufferFrame* BufferManager::popLRU() {
     pthread_mutex_lock(&lruMutex);
 
-    std::cout << "popLRU locked " << std::endl;
-
     BufferFrame* ret = lru;
-    if (lru != NULL) {
-        lru = lru->next;
+    if(lru == NULL) {
+        if(mru != NULL) {
+            std::cerr << "lru NULL and mru not" << std::endl;
+            exit(1);
+        }
+    } else if(mru == NULL) {
+        std::cerr << "mru NULL and lru not" << std::endl;
+        exit(1);
+    } else {
+        lru = ret->next;
+        ret->next = NULL;
 
-        if(lru != NULL)
+        if(lru != NULL) {
             lru->prev = NULL;
+        } else {
+            if(mru != ret) {
+                std::cerr << " mru!=ret " << mru << " != " << ret << std::endl;
+                exit(1);
+            }
+            mru = NULL;
+        }
+
+        lruLength--;
     }
 
     pthread_mutex_unlock(&lruMutex);
-
-    std::cout << "popLRU unlocked " << std::endl;
 
     return ret;
 }

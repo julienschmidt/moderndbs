@@ -90,6 +90,11 @@ int main(int argc, char** argv) {
       exit(1);
    }
 
+   if (pagesInRAM < threadCount+1) {
+      cerr << "need at least <threads> + 1 <pagesInRAM>" << endl;
+      exit(1);
+   }
+
    threadSeed = new unsigned[threadCount];
    for (unsigned i=0; i<threadCount; i++)
       threadSeed[i] = i*97134;
@@ -128,10 +133,7 @@ int main(int argc, char** argv) {
    pthread_join(scanThread, NULL);
 
    // restart buffer manager
-   cout << "--------- DELETE ---------" << endl;
    delete bm;
-
-   cout << "--------- CREATE ---------" << endl;
    bm = new BufferManager(pagesInRAM);
 
    // check counter

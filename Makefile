@@ -1,5 +1,5 @@
 CC      = clang++
-CFLAGS  = -std=c++11 -march=native -O3 -Weverything -Wno-c++98-compat -Werror -Wno-padded
+CFLAGS  = -std=c++11 -march=native -O3 -Weverything -Wno-c++98-compat -Wno-padded -Wno-deprecated -pthread
 
 all: clean sort buffer
 

@@ -46,6 +46,7 @@ class BufferFrame {
     // LRU list item
     BufferFrame* prev;
     BufferFrame* next;
+    unsigned currentUsers;
 
   friend class BufferManager;
 };
