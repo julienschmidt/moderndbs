@@ -80,6 +80,16 @@ int main(int argc, char** argv) {
       exit(1);
    }
 
+   if (pagesOnDisk <= 10) {
+      cerr << "<pagesOnDisk> must be greater than 10" << endl;
+      exit(1);
+   }
+
+   if (threadCount == 0) {
+      cerr << "<threads> must not be 0" << endl;
+      exit(1);
+   }
+
    threadSeed = new unsigned[threadCount];
    for (unsigned i=0; i<threadCount; i++)
       threadSeed[i] = i*97134;
@@ -118,7 +128,10 @@ int main(int argc, char** argv) {
    pthread_join(scanThread, NULL);
 
    // restart buffer manager
+   cout << "--------- DELETE ---------" << endl;
    delete bm;
+
+   cout << "--------- CREATE ---------" << endl;
    bm = new BufferManager(pagesInRAM);
 
    // check counter

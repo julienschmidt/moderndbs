@@ -13,18 +13,20 @@ const unsigned blocksize = 8192;
 
 class BufferFrame {
   public:
-    BufferFrame(int segmentFd, unsigned pageNo);
+    BufferFrame(int segmentFd, uint64_t pageID);
     ~BufferFrame();
-
-    void lock(bool exclusive);
-    void unlock();
     void* getData(); // returns the actual data contained on the page
-    void markDirty() { state = state_t::Dirty; }
     void flush();
 
   private:
+    void lock(bool exclusive);
+    void unlock();
+    void markDirty() { state = state_t::Dirty; }
     void loadData();
     void writeData();
+
+    // pageID
+    uint64_t id;
 
     // pointer to loaded data
     void* data;
@@ -40,6 +42,12 @@ class BufferFrame {
 
     // a read/writer lock to protect the page
     pthread_rwlock_t rwlock;
+
+    // LRU list item
+    BufferFrame* prev;
+    BufferFrame* next;
+
+  friend class BufferManager;
 };
 
 #endif  // BUFFERFRAME_H_

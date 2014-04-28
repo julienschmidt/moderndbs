@@ -12,7 +12,7 @@ class BufferManager {
     // Create a new instance that keeps up to size frames in main memory
     BufferManager(unsigned size);
 
-	// Destructor. Write all dirty frames to disk and free all resources
+    // Destructor. Write all dirty frames to disk and free all resources
     ~BufferManager();
 
     // A method to retrieve frames given a page ID and indicating whether the
@@ -40,16 +40,25 @@ class BufferManager {
 
     int getSegmentFd(unsigned segmentID);
 
+    void putLRU(BufferFrame* fp);
+    void removeLRU(BufferFrame* fp);
+    BufferFrame* popLRU();
+
     // max number of buffered pages
     unsigned maxSize;
 
     pthread_rwlock_t latch;
 
-	// hashmap containing all frames
-	std::unordered_map<uint64_t, BufferFrame> frames;
+    // hashmap containing all frames
+    std::unordered_map<uint64_t, BufferFrame> frames;
 
     // hashmap containing all file descriptors of segment files
     std::unordered_map<unsigned, int> segments;
+
+    // LRU replacement policy
+    pthread_mutex_t lruMutex;
+    BufferFrame* lru;
+    BufferFrame* mru;
 };
 
 #endif  // BUFFERMANAGER_H_
