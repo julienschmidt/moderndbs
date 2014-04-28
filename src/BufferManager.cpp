@@ -3,6 +3,7 @@
 #include <stdexcept>
 #include <tuple>
 #include <unistd.h>
+#include <cstring>  //for std::strerror
 
 #include "BufferManager.hpp"
 
