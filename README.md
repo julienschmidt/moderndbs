@@ -36,4 +36,6 @@ The following adjustments to the buffer test were made:
 * use frame references instead of copies (copy operator might not exists since copies of BufferFrames don't make any sense)
 * added sanity checks for the input args
 
-Since asynchronous write back does not need to be implemented at this point, pages are only written back when the BufferManager or the respective BufferFrames are destructed. Moreover `flush()` can be called manually on BufferFrames to write back the data.
+The Buffer Manager uses a LRU frame replacement strategy.
+
+Since asynchronous write back does not need to be implemented at this point, pages are only written back when the BufferManager or the respective BufferFrames are destructed. Moreover `flush() can be called manually on BufferFrames to write back the data.
