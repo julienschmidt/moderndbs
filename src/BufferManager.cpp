@@ -1,9 +1,10 @@
-#include <iostream>
+#include <cstring>
 #include <fcntl.h>
+#include <iostream>
 #include <stdexcept>
 #include <tuple>
 #include <unistd.h>
-#include <cstring>  //for std::strerror
+
 
 #include "BufferManager.hpp"
 
@@ -43,12 +44,14 @@ BufferFrame& BufferManager::fixPage(uint64_t pageID, bool exclusive) {
     BufferFrame* bf;
 
     // check whether the page is already buffered
-    try {
-        bf = &frames.at(pageID);
+    auto entry = frames.find(pageID);
+    if(entry != frames.end()) {
+        bf = &entry->second;
 
         // remove frame from LRU list
         removeLRU(bf);
-    } catch (const std::out_of_range) {
+
+    } else {
         // frame is not buffered, try to buffer it
 
         // release read lock and get the write lock
@@ -56,12 +59,14 @@ BufferFrame& BufferManager::fixPage(uint64_t pageID, bool exclusive) {
         wrlock();
 
         // check whether the page was loaded in the meantime
-        try {
-            bf = &frames.at(pageID);
+        entry = frames.find(pageID);
+        if(entry != frames.end()) {
+            bf = &entry->second;
 
             // remove frame from LRU list
             removeLRU(bf);
-        } catch (const std::out_of_range) {
+
+        } else {
             // check whether the the buffer is full and we need to unload a frame
             if (frames.size() >= maxSize) {
                 // select the LRU frame as our unload victim
@@ -104,9 +109,10 @@ int BufferManager::getSegmentFd(unsigned segmentID) {
     int fd;
 
     // check if the file descriptor was already created
-    try {
-        fd = segments.at(segmentID);
-    } catch (const std::out_of_range) {
+    auto entry = segments.find(segmentID);
+    if(entry != segments.end()) {
+        fd = entry->second;
+    } else {
         // must create a new one
 
         // create filename from segmentID
