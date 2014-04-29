@@ -2,7 +2,7 @@
 
 Team: Andreas Geiger, Julien Schmidt
 
-## Assignment 01: External Sorting
+## [Assignment 01: External Sorting](https://github.com/julienschmidt/moderndbs/releases/tag/assignment01)
 
 Run with:
 ```bash
@@ -17,7 +17,7 @@ $ ./bin/sort ./test/data/test_4MiB ./out 1
 ```
 
 
-## Assignment 02: Buffer Manager
+## [Assignment 02: Buffer Manager](https://github.com/julienschmidt/moderndbs/releases/tag/assignment02)
 
 Run with:
 ```bash
