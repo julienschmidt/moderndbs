@@ -80,7 +80,7 @@ int main(int argc, char* argv[]) {
     return EXIT_SUCCESS;
 }
 
-//Checks if the file is in ascending ordering
+// Checks wether the file is in ascending order
 bool checkOrder(int fd, size_t fsize) {
     size_t result = 0;
 
@@ -101,7 +101,7 @@ bool checkOrder(int fd, size_t fsize) {
     // read first value
     result += (size_t)read(fd, &prev, sizeof(uint64_t));
 
-    // read rest
+    // read remaining values
     while(result < fsize) {
         prev = current;
         result += (size_t)read(fd, &current, sizeof(uint64_t));

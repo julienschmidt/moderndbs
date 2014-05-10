@@ -54,7 +54,7 @@ int main(int argc, char** argv) {
    // Setting everything
    BufferManager bm(100);
    // TODO ...
-   SPSegment& sp = 
+   SPSegment& sp =
    Random64 rnd;
 
    // Insert some records
