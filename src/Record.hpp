@@ -1,5 +1,5 @@
-#ifndef H_Record_HPP
-#define H_Record_HPP
+#ifndef RECORD_H_
+#define RECORD_H_
 
 #include <cstring>
 #include <cstdlib>
@@ -49,4 +49,4 @@ Record::~Record() {
    free(data);
 }
 
-#endif
+#endif // RECORD_H_
