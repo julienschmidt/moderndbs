@@ -10,9 +10,8 @@
 
 class ParserError : std::exception {
    std::string msg;
-   unsigned line;
    public:
-   ParserError(unsigned line, const std::string& m) : msg(m), line(line) {}
+   ParserError(unsigned line, const std::string& m) : msg(m) {}
    ~ParserError() throw() {}
    const char* what() const throw() {
       return msg.c_str();
