@@ -39,3 +39,13 @@ The following adjustments to the buffer test were made:
 The Buffer Manager uses a LRU frame replacement strategy.
 
 Since asynchronous write back does not need to be implemented at this point, pages are only written back when the BufferManager or the respective BufferFrames are destructed. Moreover `flush()` can be called manually on BufferFrames to write back the data.
+
+## [Assignment 03: Segments / Slotted Pages](https://github.com/julienschmidt/moderndbs/releases/tag/assignment03)
+
+### Schema Segments
+Run with:
+```bash
+$ make schema
+$ ./bin/schema test/sql/test.sql
+```
+

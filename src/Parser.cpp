@@ -24,10 +24,12 @@ namespace literal {
    const char Semicolon = ';';
 }
 
-std::unique_ptr<Schema> Parser::parse() {
+//std::unique_ptr<Schema> Parser::parse() {
+Schema Parser::parse() {
    std::string token;
    unsigned line=1;
-   std::unique_ptr<Schema> s(new Schema());
+   //std::unique_ptr<Schema> s(new Schema());
+   Schema s;
    in.open(fileName.c_str());
    if (!in.is_open())
       throw ParserError(line, "cannot open file '"+fileName+"'");
@@ -36,11 +38,11 @@ std::unique_ptr<Schema> Parser::parse() {
       std::string::size_type prevPos = 0;
 
       while ((pos = token.find_first_of(",)(;", prevPos)) != std::string::npos) {
-         nextToken(line, token.substr(prevPos, pos-prevPos), *s);
-         nextToken(line, token.substr(pos,1), *s);
+         nextToken(line, token.substr(prevPos, pos-prevPos), s);
+         nextToken(line, token.substr(pos,1), s);
          prevPos=pos+1;
       }
-      nextToken(line, token.substr(prevPos), *s);
+      nextToken(line, token.substr(prevPos), s);
       if (token.find("\n")!=std::string::npos)
          ++line;
    }

@@ -10,7 +10,7 @@
 class BufferManager {
   public:
     // Create a new instance that keeps up to size frames in main memory
-    BufferManager(unsigned size);
+    BufferManager(size_t size);
 
     // Destructor. Write all dirty frames to disk and free all resources
     ~BufferManager();
@@ -45,7 +45,7 @@ class BufferManager {
     BufferFrame* popLRU();
 
     // max number of buffered pages
-    unsigned maxSize;
+    size_t maxSize;
 
     pthread_rwlock_t latch;
 

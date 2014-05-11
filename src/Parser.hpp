@@ -25,7 +25,8 @@ struct Parser {
    State state;
    Parser(const std::string& fileName) : fileName(fileName), state(State::Init) {}
    ~Parser() {};
-   std::unique_ptr<Schema> parse();
+   //std::unique_ptr<Schema> parse();
+   Schema parse();
 
    private:
    void nextToken(unsigned line, const std::string& token, Schema& s);

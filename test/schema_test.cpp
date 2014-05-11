@@ -2,7 +2,9 @@
 #include <memory>
 #include <string>
 
+#include "../src/BufferManager.hpp"
 #include "../src/Parser.hpp"
+#include "../src/SchemaSegment.hpp"
 
 using namespace std;
 
@@ -13,18 +15,29 @@ int main(int argc, char* argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    // then try to open the files with the given file paths
-    /*int fdInput;
-    if((fdInput = open(argv[1], O_RDONLY)) < 0) {
-        perror("Can not open input file");
-        exit(EXIT_FAILURE);
-    }*/
+    try {
+        Parser parser(argv[1]);
+        Schema schema = parser.parse();
 
+        BufferManager bm(1);
 
-    Parser parser(argv[1]);
-    unique_ptr<Schema> schema = parser.parse();
+        // store
+        SchemaSegment ss0(bm, 0, schema);
 
-    cout << schema->toString() << endl;
+        // load
+        SchemaSegment ss1(bm, 0);
 
-    return EXIT_SUCCESS;
+        // check wether inserted == loaded
+        if(schema.toString().compare(ss1.getSchema()->toString()) == 0) {
+            cout << "TEST SUCCESSFULL!" << endl;
+            return EXIT_SUCCESS;
+        }
+    } catch(ParserError& pe) {
+        cerr << "ParserError: " << pe.what() << endl;
+    } catch(exception& e) {
+        cerr << e.what() << endl;
+    }
+
+    cerr << "TEST FAILED!" << endl;
+    return EXIT_FAILURE;
 }

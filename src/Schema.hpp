@@ -1,8 +1,9 @@
-#ifndef H_Schema_hpp
-#define H_Schema_hpp
+#ifndef SCHEMA_H_
+#define SCHEMA_H_
 
 #include <vector>
 #include <string>
+
 #include "Types.hpp"
 
 struct Schema {
@@ -10,7 +11,7 @@ struct Schema {
       struct Attribute {
          std::string name;
          Types::Tag type;
-         unsigned len;
+         size_t len;
          bool notNull;
          Attribute() : len(~0), notNull(true) {}
       };
@@ -22,4 +23,5 @@ struct Schema {
    std::vector<Schema::Relation> relations;
    std::string toString() const;
 };
-#endif
+
+#endif // SCHEMA_H_

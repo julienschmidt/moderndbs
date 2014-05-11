@@ -8,7 +8,7 @@
 
 #include "BufferManager.hpp"
 
-BufferManager::BufferManager(unsigned size) {
+BufferManager::BufferManager(size_t size) {
     maxSize = size;
     pthread_rwlock_init(&latch, NULL);
 
