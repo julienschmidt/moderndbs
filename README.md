@@ -46,6 +46,19 @@ Since asynchronous write back does not need to be implemented at this point, pag
 Run with:
 ```bash
 $ make schema
-$ ./bin/schema test/sql/test.sql
+$ ./bin/schema ./test/sql/schema.sql
 ```
+### Slotted Pages
+Run with:
+```bash
+$ make slotted
+$ ./bin/slotted <pageSize>
+```
+
+For example:
+```bash
+$ make slotted
+$ ./bin/slotted 64
+```
+
 
