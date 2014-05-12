@@ -26,6 +26,8 @@ void SchemaSegment::writeToDisk() {
 
     dataPtr = (void*) stPtr;
 
+    // TODO: reorder or use padding?
+
     // serialize relations
     for(size_t i=0; i < relCount; ++i) {
         Schema::Relation& relation = schema.relations[i];
@@ -41,9 +43,18 @@ void SchemaSegment::writeToDisk() {
         memcpy(charPtr, relation.name.data(), nameLen);
         charPtr += nameLen;
 
+        // segmentID
+        uint16_t* u16Ptr = (uint16_t*) charPtr;
+        *u16Ptr = relation.segmentID;
+        u16Ptr++;
+
+        // size
+        stPtr = (size_t*) u16Ptr;
+        *stPtr = relation.size;
+        stPtr++;
+
         // primary key length
         size_t pkLen = relation.primaryKey.size();
-        stPtr = (size_t*) charPtr;
         *stPtr = pkLen;
         ++stPtr;
 
@@ -128,8 +139,17 @@ void SchemaSegment::loadFromDisk() {
 
         Schema::Relation& relation = schema.relations[i];
 
+        // segmentID
+        uint16_t* u16Ptr = (uint16_t*) charPtr;
+        relation.segmentID = *u16Ptr;
+        u16Ptr++;
+
+        // size
+        stPtr = (size_t*) u16Ptr;
+        relation.size = *stPtr;
+        stPtr++;
+
         // primary key
-        stPtr = (size_t*) charPtr;
         size_t pkLen = *stPtr;
         ++stPtr;
         unsigned* usgPtr = (unsigned*) stPtr;

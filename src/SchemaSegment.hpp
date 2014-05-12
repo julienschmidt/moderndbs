@@ -4,33 +4,6 @@
 #include "Schema.hpp"
 #include "Segment.hpp"
 
-struct Header {
-    size_t  numRelations; // number of relations
-    void*   dataPtr;      // last data block
-};
-
-struct Relation {
-    /*
-    segmentID
-    nameOffset
-    nameLength
-    size       // size in pages
-    ? pkOffset // begin of PK List
-    ? pkLength // PK list length
-    attrOffset
-    attrLength
-    */
-};
-
-/*struct Atrribute {
-    // id // position of the attribute in the relation
-    Types::Tag type;
-    size_t length; // length in bytes
-    bool notNull;
-    nameOffset;
-    nameLength;
-};*/
-
 class SchemaSegment : public Segment {
   public:
     // create segment from new schema

@@ -29,7 +29,7 @@ int main(int argc, char* argv[]) {
 
         // check wether inserted == loaded
         if(schema.toString().compare(ss1.getSchema()->toString()) == 0) {
-            cout << "TEST SUCCESSFULL!" << endl;
+            cout << "TEST SUCCESSFUL!" << endl;
             return EXIT_SUCCESS;
         }
     } catch(ParserError& pe) {
