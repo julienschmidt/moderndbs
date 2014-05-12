@@ -40,7 +40,7 @@ int main(int argc, char** argv) {
 
    // Bookkeeping
    unordered_map<TID, unsigned> values; // TID -> testData entry
-   unordered_map<unsigned, unsigned> usage; // pageID -> bytes used within this page
+   unordered_map<unsigned, size_t> usage; // pageID -> bytes used within this page
 
    // Setting everything
    BufferManager bm(100);
@@ -52,11 +52,12 @@ int main(int argc, char** argv) {
       // Select string/record to insert
       uint64_t r = rnd.next()%testData.size();
       const string s = testData[r];
+      const size_t need = s.size()+sizeof(SPSegment::Slot);
 
       // Check that there is space available for 's'
       bool full = true;
       for (unsigned p=0; p<initialSize; ++p) {
-         if (usage[p] < pageSize-sizeof(SPSegment::Header)) {
+         if (usage[p]+need < pageSize-sizeof(SPSegment::Header)) {
             full = false;
             break;
          }
@@ -69,12 +70,9 @@ int main(int argc, char** argv) {
       assert(values.find(tid)==values.end()); // TIDs should not be overwritten
       values[tid]=r;
       unsigned pageId = extractPage(tid); // extract the pageId from the TID
-      //cout << "pageId " << pageId << endl;
       assert(pageId < initialSize); // pageId should be within [0, initialSize)
-      usage[pageId] += s.size() + sizeof(SPSegment::Slot);
+      usage[pageId] += need;
    }
-
-   cout << "::: finished inserts :::" << endl;
 
    // Lookup & delete some records
    for (unsigned i=0; i<maxDeletes; ++i) {
