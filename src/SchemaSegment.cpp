@@ -12,6 +12,8 @@ SchemaSegment::SchemaSegment(BufferManager& bm, uint64_t id) : Segment(bm, id), 
 }
 
 void SchemaSegment::writeToDisk() {
+    size = 1; // we pray that everything fits into one page for now
+
     BufferFrame& bf = bm.fixPage(id, true);
     void* dataPtr = bf.getData();
 
@@ -24,7 +26,7 @@ void SchemaSegment::writeToDisk() {
     *stPtr           = relCount;
     ++stPtr;
 
-    dataPtr = (void*) stPtr;
+    dataPtr = static_cast<void*>(stPtr);
 
     // TODO: reorder or use padding?
 
@@ -34,22 +36,22 @@ void SchemaSegment::writeToDisk() {
 
         // name length
         size_t nameLen = relation.name.length();
-        stPtr = (size_t*) dataPtr;
+        stPtr = reinterpret_cast<size_t*>(dataPtr);
         *stPtr = nameLen;
         ++stPtr;
 
         // name data
-        char* charPtr = (char*) stPtr;
+        char* charPtr = reinterpret_cast<char*>(stPtr);
         memcpy(charPtr, relation.name.data(), nameLen);
         charPtr += nameLen;
 
         // segmentID
-        uint16_t* u16Ptr = (uint16_t*) charPtr;
+        uint16_t* u16Ptr = reinterpret_cast<uint16_t*>(charPtr);
         *u16Ptr = relation.segmentID;
         u16Ptr++;
 
         // size
-        stPtr = (size_t*) u16Ptr;
+        stPtr = reinterpret_cast<size_t*>(u16Ptr);
         *stPtr = relation.size;
         stPtr++;
 
@@ -59,17 +61,17 @@ void SchemaSegment::writeToDisk() {
         ++stPtr;
 
         // primary key data
-        unsigned* usgPtr = (unsigned*) stPtr;
+        unsigned* usgPtr = reinterpret_cast<unsigned*>(stPtr);
         memcpy(usgPtr, &relation.primaryKey[0], pkLen*sizeof(unsigned));
         usgPtr += pkLen;
 
         // number of attributes
         size_t attrCount = relation.attributes.size();
-        stPtr = (size_t*) usgPtr;
+        stPtr = reinterpret_cast<size_t*>(usgPtr);
         *stPtr = attrCount;
         ++stPtr;
 
-        dataPtr = (void*) stPtr;
+        dataPtr = static_cast<void*>(stPtr);
 
         // serialize attributes
         for(size_t j=0; j < attrCount; ++j) {
@@ -77,32 +79,32 @@ void SchemaSegment::writeToDisk() {
 
             // name length
             nameLen = attr.name.length();
-            stPtr = (size_t*) dataPtr;
+            stPtr = reinterpret_cast<size_t*>(dataPtr);
             *stPtr = nameLen;
             ++stPtr;
 
             // name data
-            char* charPtr = (char*) stPtr;
+            char* charPtr = reinterpret_cast<char*>(stPtr);
             memcpy(charPtr, attr.name.data(), nameLen);
             charPtr += nameLen;
 
             // type
-            Types::Tag* typePtr = (Types::Tag*) charPtr;
+            Types::Tag* typePtr = reinterpret_cast<Types::Tag*>(charPtr);
             *typePtr = attr.type;
             ++typePtr;
 
             // len
-            stPtr = (size_t*) typePtr;
+            stPtr = reinterpret_cast<size_t*>(typePtr);
             *stPtr = attr.len;
             ++stPtr;
 
             // notNull
             // TODO: pack this into a bit field or something
-            charPtr = (char*) stPtr;
+            charPtr = reinterpret_cast<char*>(stPtr);
             *charPtr = (char) attr.notNull;
             ++charPtr;
 
-            dataPtr = (void*) charPtr;
+            dataPtr = static_cast<void*>(charPtr);
         }
     }
 

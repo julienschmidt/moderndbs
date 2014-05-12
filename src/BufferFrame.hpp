@@ -9,7 +9,7 @@ enum state_t {
     Dirty  // data loaded and changed
 };
 
-const unsigned blocksize = 8192;
+const size_t blocksize = 8192;
 
 class BufferFrame {
   public:

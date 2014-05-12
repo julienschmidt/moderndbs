@@ -1,5 +1,5 @@
-#ifndef H_Types_hpp
-#define H_Types_hpp
+#ifndef TYPES_H_
+#define TYPES_H_
 
 #include <string>
 #include <cmath>
@@ -59,4 +59,4 @@ Numeric<len1,len2>::Numeric(uint64_t pre, uint64_t decimal) {
    data = decimal + std::pow(10, len2)*pre;
 }
 */
-#endif
+#endif // TYPES_H_

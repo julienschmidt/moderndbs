@@ -1,11 +1,12 @@
-#ifndef H_Parser_hpp
-#define H_Parser_hpp
+#ifndef PARSER_H_
+#define PARSER_H_
 
 #include <exception>
 #include <string>
 #include <memory>
 #include <fstream>
 #include <sstream>
+
 #include "Schema.hpp"
 
 class ParserError : std::exception {
@@ -32,4 +33,4 @@ struct Parser {
    void nextToken(unsigned line, const std::string& token, Schema& s);
 };
 
-#endif
+#endif // PARSER_H_
