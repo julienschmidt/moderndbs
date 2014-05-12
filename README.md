@@ -52,13 +52,7 @@ $ ./bin/schema ./test/sql/schema.sql
 Run with:
 ```bash
 $ make slotted
-$ ./bin/slotted <pageSize>
-```
-
-For example:
-```bash
-$ make slotted
-$ ./bin/slotted 64
+$ ./bin/slotted
 ```
 
 

@@ -5,22 +5,18 @@
 #include <cassert>
 #include <string.h>
 
-#include "DBMS.hpp" // include your stuff here
-#include "Record.hpp"
+#include "../src/SPSegment.hpp"
 
 using namespace std;
 
-// todo: adapt to your implementation
-uint64_t extractPage(TID tid) {
-   return tid >> 16;
+uint64_t extractPage(const TID& tid) {
+    return (uint64_t) tid.pageID;
 }
 
 const unsigned initialSize = 100; // in (slotted) pages
-const unsigned totalSize = initialSize+50; // in (slotted) pages
 const unsigned maxInserts = 1000ul*1000ul;
 const unsigned maxDeletes = 10ul*1000ul;
 const unsigned maxUpdates = 10ul*1000ul;
-const double loadFactor = .8; // percentage of a page that can be used to store the payload
 const vector<string> testData = {
    "640K ought to be enough for anybody",
    "Beware of bugs in the above code; I have only proved it correct, not tried it",
@@ -40,12 +36,7 @@ class Random64 {
 };
 
 int main(int argc, char** argv) {
-   // Check arguments
-   if (argc != 2) {
-      cerr << "usage: " << argv[0] << " <pageSize>" << endl;
-      return -1;
-   }
-   const unsigned pageSize = atoi(argv[1]);
+   const unsigned pageSize = blocksize;
 
    // Bookkeeping
    unordered_map<TID, unsigned> values; // TID -> testData entry
@@ -53,8 +44,7 @@ int main(int argc, char** argv) {
 
    // Setting everything
    BufferManager bm(100);
-   // TODO ...
-   SPSegment& sp =
+   SPSegment sp(bm, 1);
    Random64 rnd;
 
    // Insert some records
@@ -66,7 +56,7 @@ int main(int argc, char** argv) {
       // Check that there is space available for 's'
       bool full = true;
       for (unsigned p=0; p<initialSize; ++p) {
-         if (usage[p] < loadFactor*pageSize) {
+         if (usage[p] < pageSize-sizeof(SPSegment::Header)) {
             full = false;
             break;
          }
@@ -79,9 +69,12 @@ int main(int argc, char** argv) {
       assert(values.find(tid)==values.end()); // TIDs should not be overwritten
       values[tid]=r;
       unsigned pageId = extractPage(tid); // extract the pageId from the TID
+      //cout << "pageId " << pageId << endl;
       assert(pageId < initialSize); // pageId should be within [0, initialSize)
-      usage[pageId]+=s.size();
+      usage[pageId] += s.size() + sizeof(SPSegment::Slot);
    }
+
+   cout << "::: finished inserts :::" << endl;
 
    // Lookup & delete some records
    for (unsigned i=0; i<maxDeletes; ++i) {
@@ -130,5 +123,5 @@ int main(int argc, char** argv) {
       assert(memcmp(rec.getData(), value.c_str(), len)==0);
    }
 
-   return 0;
+   return EXIT_SUCCESS;
 }
