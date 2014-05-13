@@ -2,6 +2,7 @@
 #define TID_H_
 
 struct TID {
+    // DO NOT change the order (using TID{...})
     uint32_t pageID;
     uint32_t slotID;
 

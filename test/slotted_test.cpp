@@ -15,8 +15,7 @@ uint64_t extractPage(const TID& tid) {
 
 const unsigned initialSize = 100; // in (slotted) pages
 const unsigned maxInserts = 1000ul*1000ul;
-const unsigned maxDeletes = 10ul*1000ul;
-const unsigned maxUpdates = 10ul*1000ul;
+const unsigned maxUpdates = 100;
 const vector<string> testData = {
    "640K ought to be enough for anybody",
    "Beware of bugs in the above code; I have only proved it correct, not tried it",
@@ -47,6 +46,8 @@ int main(int argc, char** argv) {
    SPSegment sp(bm, 1);
    Random64 rnd;
 
+   unsigned inserts = 0;
+
    // Insert some records
    for (unsigned i=0; i<maxInserts; ++i) {
       // Select string/record to insert
@@ -72,10 +73,14 @@ int main(int argc, char** argv) {
       unsigned pageId = extractPage(tid); // extract the pageId from the TID
       assert(pageId < initialSize); // pageId should be within [0, initialSize)
       usage[pageId] += need;
+
+      inserts++;
    }
 
+   unsigned deletes = inserts/10;
+
    // Lookup & delete some records
-   for (unsigned i=0; i<maxDeletes; ++i) {
+   while(deletes > 0) {
       // Select operation
       bool del = rnd.next()%10 == 0;
 
@@ -94,11 +99,14 @@ int main(int argc, char** argv) {
          assert(sp.remove(tid));
          values.erase(tid);
          usage[pageId]-=len;
+
+         deletes--;
       }
    }
 
    // Update some values ('usage' counter invalid from here on)
    for (unsigned i=0; i<maxUpdates; ++i) {
+      // TODO random select
       // Select victim
       TID tid = values.begin()->first;
 
@@ -121,5 +129,6 @@ int main(int argc, char** argv) {
       assert(memcmp(rec.getData(), value.c_str(), len)==0);
    }
 
+   cout << "TEST SUCCESSFUL!" << endl;
    return EXIT_SUCCESS;
 }

@@ -10,12 +10,14 @@ class Segment {
     BufferManager&  bm;
 
   public:
-    Segment(BufferManager& bm, uint64_t id) : id(id), bm(bm) {
-
-    }
+    Segment(BufferManager& bm, uint64_t id) : id(id), size(0), bm(bm) {}
 
     uint64_t getID() {
         return id;
+    }
+
+    size_t getSize() {
+        return size;
     }
 };
 

@@ -13,19 +13,37 @@ class SPSegment : public Segment {
     // exported for the test
     struct Header {
         // LSN for recovery
-        uint16_t slotCount;     // number of used slots
-        uint16_t firstFreeSlot; // cache to speed up locating free slots
+        uint32_t slotCount;     // number of used slots
+        uint32_t firstFreeSlot; // cache to speed up locating free slots
         off_t    dataStart;     // lower end of the data
         size_t   freeSpace;     // space that would be available after compaction
         Header() : slotCount(0), firstFreeSlot(0), dataStart(blocksize), freeSpace(blocksize-sizeof(Header)) {}
     };
+
     struct Slot {
-        size_t length;   // length of the data item
-        //size_t alloc;  // number of allocated bytes
-        off_t  offset;   // start of the data item
-        // free slot: oﬀset = 0, length = 0
-        // zero-length data item: oﬀset > 0, length = 0
-        Slot() : length(0), offset(0) {}
+        off_t    offset; // start of the data item
+        uint64_t length; // length of the data item
+
+        Slot() : offset(0), length(0) {}
+
+        // offset = 0 => free
+        inline bool isFree() {
+            return (offset == 0);
+        }
+
+        // offset = 1 => indirection
+        inline bool isIndirection() {
+            return (offset == 1);
+        }
+
+        inline TID getIndirectionTID() {
+            return TID{(uint32_t) (length >> 32), (uint32_t) length};
+        }
+
+        inline void setIndirection(TID tid) {
+            offset = 1;
+            length = (uint64_t) (tid.pageID) << 32 | tid.slotID;
+        }
     };
 
     SPSegment(BufferManager& bm, uint64_t id) : Segment(bm, id) {};
@@ -43,11 +61,6 @@ class SPSegment : public Segment {
 
     // Updates the record pointed to by tid with the content of record r
     bool update(TID tid, const Record& r);
-
-  private:
-
-
-    //std::map<uint16_t,std::list<off_t>> blockMap;
 };
 
 #endif  // SPSEGMENT_H_
