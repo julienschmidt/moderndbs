@@ -1,6 +1,9 @@
 #ifndef RECORD_H_
 #define RECORD_H_
 
+#include <stdlib.h>
+#include <string.h>
+
 // A simple Record implementation
 class Record {
    unsigned len;
