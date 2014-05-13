@@ -203,13 +203,13 @@ bool SPSegment::update(TID tid, const Record& r) {
             return true;
         }
     } else {
-        Header& header = reinterpret_cast<Header*>(data)[0];
-
         unsigned newLen = r.getLen();
         unsigned oldLen = slot.length;
 
         // check if able to replace in-place
         if (newLen <= oldLen) {
+            Header& header = reinterpret_cast<Header*>(data)[0];
+
             // update length and free space
             slot.length = newLen;
             header.freeSpace += oldLen - newLen;
@@ -244,6 +244,7 @@ bool SPSegment::update(TID tid, const Record& r) {
                 newslot.offset = 0;
                 newslot.length = 0;
 
+                Header& header = reinterpret_cast<Header*>(data)[0];
                 if (newtid.slotID < header.firstFreeSlot)
                     header.firstFreeSlot = newtid.slotID;
 
