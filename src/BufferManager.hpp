@@ -6,7 +6,6 @@
 
 #include "BufferFrame.hpp"
 
-
 class BufferManager {
   public:
     // Create a new instance that keeps up to size frames in main memory
@@ -29,9 +28,6 @@ class BufferManager {
     // to write it back immediately but must not write it back before unfixPage
     // is called.
     void unfixPage(BufferFrame& frame, bool isDirty);
-
-    // writes all modified data back to disk
-    void flush();
 
   private:
     inline void rdlock() { pthread_rwlock_rdlock(&latch); }
