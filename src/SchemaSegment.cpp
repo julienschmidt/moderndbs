@@ -120,20 +120,20 @@ void SchemaSegment::loadFromDisk() {
     // Java or Ruby hackers, last chance to turn back!
 
     // number of relations
-    size_t* stPtr    = (size_t*) dataPtr;
+    size_t* stPtr = reinterpret_cast<size_t*>(dataPtr);
     size_t  relCount = *stPtr;
     ++stPtr;
     schema.relations.reserve(relCount);
 
-    dataPtr = (void*) stPtr;
+    dataPtr = static_cast<void*>(stPtr);
 
     // deserialize relations
     for(size_t i=0; i < relCount; ++i) {
         // name
-        stPtr = (size_t*) dataPtr;
+        stPtr = reinterpret_cast<size_t*>(dataPtr);
         size_t nameLen = *stPtr;
         ++stPtr;
-        char* charPtr = (char*) stPtr;
+        char* charPtr = reinterpret_cast<char*>(stPtr);
         schema.relations.push_back(Schema::Relation(
             std::string(charPtr, nameLen)
         ));
@@ -142,59 +142,59 @@ void SchemaSegment::loadFromDisk() {
         Schema::Relation& relation = schema.relations[i];
 
         // segmentID
-        uint16_t* u16Ptr = (uint16_t*) charPtr;
+        uint16_t* u16Ptr = reinterpret_cast<uint16_t*>(charPtr);
         relation.segmentID = *u16Ptr;
         u16Ptr++;
 
         // size
-        stPtr = (size_t*) u16Ptr;
+        stPtr = reinterpret_cast<size_t*>(u16Ptr);
         relation.size = *stPtr;
         stPtr++;
 
         // primary key
         size_t pkLen = *stPtr;
         ++stPtr;
-        unsigned* usgPtr = (unsigned*) stPtr;
+        unsigned* usgPtr = reinterpret_cast<unsigned*>(stPtr);
         relation.primaryKey.assign(usgPtr, usgPtr+pkLen);
         usgPtr+=pkLen;
 
         // number of attributes
-        stPtr = (size_t*) usgPtr;
+        stPtr = reinterpret_cast<size_t*>(usgPtr);
         size_t attrCount = *stPtr;
         ++stPtr;
         relation.attributes.resize(attrCount);
 
-        dataPtr = (void*) stPtr;
+        dataPtr = static_cast<void*>(stPtr);
 
         // deserialize attributes
         for(size_t j=0; j < attrCount; ++j) {
             Schema::Relation::Attribute& attr = relation.attributes[j];
 
             // name
-            stPtr = (size_t*) dataPtr;
+            stPtr = reinterpret_cast<size_t*>(dataPtr);
             size_t nameLen = *stPtr;
             ++stPtr;
-            char* charPtr = (char*) stPtr;
+            char* charPtr = reinterpret_cast<char*>(stPtr);
             attr.name = std::string(charPtr, nameLen);
             charPtr += nameLen;
 
             // type
-            Types::Tag* typePtr = (Types::Tag*) charPtr;
+            Types::Tag* typePtr = reinterpret_cast<Types::Tag*>(charPtr);
             attr.type = *typePtr;
             ++typePtr;
 
             // len
-            stPtr = (size_t*) typePtr;
+            stPtr = reinterpret_cast<size_t*>(typePtr);
             attr.len = *stPtr;
             ++stPtr;
 
             // notNull
             // TODO: pack this into a bit field or something
-            charPtr = (char*) stPtr;
+            charPtr = reinterpret_cast<char*>(stPtr);
             *charPtr = (char) attr.notNull;
             ++charPtr;
 
-            dataPtr = (void*) charPtr;
+            dataPtr = static_cast<void*>(charPtr);
         }
     }
 
