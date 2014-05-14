@@ -1,7 +1,8 @@
 #include <new>
+#include <queue>
+#include <vector>
 
 #include "SPSegment.hpp"
-
 
 // Searches through the segment's pages looking for a page with enough space to
 // store r. Returns the TID identifying the location where r was stored
@@ -22,17 +23,21 @@ TID SPSegment::insert(const Record& r) {
         BufferFrame& rbf = bm.fixPage(segPfx | pageID, false);
         data   = static_cast<char*>(rbf.getData());
         header = reinterpret_cast<Header*>(data);
-
-        off_t headEnd   = sizeof(Header) + (header->slotCount+1)*sizeof(Slot);
-        off_t dataStart = header->dataStart;
-
-        bm.unfixPage(rbf, false);
+        size_t freeSpace = header->freeSpace;
 
         // enough free space in the current page?
-        // TODO: check header->freeSpace instead (needs compaction)
-        if (dataStart > headEnd && recLen <= (dataStart - headEnd)) {
+        if(recLen+sizeof(Slot) <= freeSpace) {
+            off_t headEnd   = sizeof(Header) + (header->slotCount+1)*sizeof(Slot);
+            off_t dataStart = header->dataStart;
+            bm.unfixPage(rbf, false);
+
+            if (dataStart <= headEnd || recLen > (dataStart - headEnd)) {
+                //must compact the page
+                compactPage(pageID);
+            }
             break; // found a page with enough space
         }
+        bm.unfixPage(rbf, false);
     }
 
     // open page for writing
@@ -47,9 +52,11 @@ TID SPSegment::insert(const Record& r) {
 
         // insert new Slot
         slotID = 0;
-        slot = new (data+sizeof(Header)) Slot();
+        slot   = new (data+sizeof(Header)) Slot();
         header->slotCount     = 1;
         header->firstFreeSlot = 1;
+
+        // update free space
         header->freeSpace -= sizeof(Slot) + recLen;
 
     } else { // existing page
@@ -60,7 +67,7 @@ TID SPSegment::insert(const Record& r) {
             slotID = header->firstFreeSlot;
 
             // search for the next free slot
-            uint32_t i = slotID;
+            uint32_t i = slotID+1;
             for(; i < slotCount; i++) {
                 Slot& otherSlot = reinterpret_cast<Slot*>(data+sizeof(Header))[i];
                 if (otherSlot.isFree())
@@ -68,16 +75,21 @@ TID SPSegment::insert(const Record& r) {
             }
             header->firstFreeSlot = i;
 
+            // update free space
+            header->freeSpace -= recLen;
+
         // insert new Slot
         } else {
             slotID = slotCount;
+
             header->slotCount++;
-            header->firstFreeSlot++;
+            header->firstFreeSlot = header->slotCount;
+
+            // update free space
+            header->freeSpace -= sizeof(Slot) + recLen;
         }
 
-        // insert Record
         slot = new (data + sizeof(Header) + slotID*sizeof(Slot)) Slot();
-        header->freeSpace -= sizeof(Slot) + recLen;
     }
 
     // Insert Record Data
@@ -88,7 +100,6 @@ TID SPSegment::insert(const Record& r) {
     memcpy(recPtr, r.getData(), recLen);
 
     bm.unfixPage(bf, true);
-
     return TID{pageID, slotID};
 }
 
@@ -123,7 +134,7 @@ bool SPSegment::remove(TID tid) {
             header.dataStart += slot.length;
 
         // update free space
-        header.freeSpace += slot.length += sizeof(Slot);
+        header.freeSpace += slot.length;
 
         // mark this slot as empty
         slot.length = 0;
@@ -195,6 +206,7 @@ bool SPSegment::update(TID tid, const Record& r) {
             islot.offset = 0;
             islot.length = 0;
 
+            // update first free slot cache
             Header& iheader = reinterpret_cast<Header*>(idata)[0];
             if (itid.slotID < iheader.firstFreeSlot)
                 iheader.firstFreeSlot = itid.slotID;
@@ -203,13 +215,13 @@ bool SPSegment::update(TID tid, const Record& r) {
             return true;
         }
     } else {
+        Header& header = reinterpret_cast<Header*>(data)[0];
+
         unsigned newLen = r.getLen();
         unsigned oldLen = slot.length;
 
         // check if able to replace in-place
         if (newLen <= oldLen) {
-            Header& header = reinterpret_cast<Header*>(data)[0];
-
             // update length and free space
             slot.length = newLen;
             header.freeSpace += oldLen - newLen;
@@ -223,33 +235,37 @@ bool SPSegment::update(TID tid, const Record& r) {
             return true;
 
         } else {
+            // remove current record
+            slot.length = 0;
+            header.freeSpace += oldLen;
+
             // not in the mood for deadlocks today?
-            bm.unfixPage(bf, false);
+            bm.unfixPage(bf, true);
 
             // insert again
             TID newtid = insert(r);
 
             // open same page again for writing
             BufferFrame& bf2 = bm.fixPage((id << 48) | tid.pageID, true);
-            data = static_cast<char*>(bf2.getData());
-            Slot& slot = reinterpret_cast<Slot*>(data+sizeof(Header))[tid.slotID];
+            char* data2 = static_cast<char*>(bf2.getData());
+            Slot& slot2 = reinterpret_cast<Slot*>(data2+sizeof(Header))[tid.slotID];
 
             // handle indirection to same page
             if (newtid.pageID == tid.pageID) {
-                Slot& newslot = reinterpret_cast<Slot*>(data+sizeof(Header))[newtid.slotID];
-                slot.offset = newslot.offset;
-                slot.length = newslot.length;
+                Slot& newslot = reinterpret_cast<Slot*>(data2+sizeof(Header))[newtid.slotID];
+                slot2.offset = newslot.offset;
+                slot2.length = newslot.length;
 
                 // mark new slot as free
                 newslot.offset = 0;
                 newslot.length = 0;
 
-                Header& header = reinterpret_cast<Header*>(data)[0];
+                // update first free slot cache
+                Header& header = reinterpret_cast<Header*>(data2)[0];
                 if (newtid.slotID < header.firstFreeSlot)
                     header.firstFreeSlot = newtid.slotID;
-
             } else {
-                slot.setIndirection(newtid);
+                slot2.setIndirection(newtid);
             }
 
             // close page and return
@@ -259,4 +275,50 @@ bool SPSegment::update(TID tid, const Record& r) {
     }
 
     return false;
+}
+
+void SPSegment::compactPage(uint32_t pageID) {
+    // open the page for writing
+    BufferFrame& bf     = bm.fixPage((id << 48) | pageID, true);
+    char*        data   = static_cast<char*>(bf.getData());
+    Header*      header = reinterpret_cast<Header*>(data);
+
+    uint32_t slotCount = header->slotCount;
+    Slot*    slots     = reinterpret_cast<Slot*>(data+sizeof(Header));
+
+    // put all non-free and non-indirection slots in a priority queue
+    struct SlotPtrCmpOffst {
+        bool operator() (Slot* const &a, Slot* const &b) {
+            return a->offset < b->offset;
+        }
+    };
+    std::priority_queue<Slot*, std::vector<Slot*>, SlotPtrCmpOffst> slotPtrs;
+    for(uint32_t slotID = 0; slotID < slotCount; slotID++) {
+        Slot& slot = slots[slotID];
+
+        if (!slot.isIndirection() && !slot.isFree())
+            slotPtrs.push(&slot);
+    }
+
+    off_t offset = blocksize;
+
+    // move records
+    while (!slotPtrs.empty()) {
+        Slot* slot = slotPtrs.top();
+        slotPtrs.pop();
+
+        // nothing to move, if the record length is 0 bytes
+        if (slot->length == 0)
+            continue;
+
+        // move the data
+        offset -= slot->length;
+        memmove(data+offset, data+slot->offset, slot->length);
+        slot->offset = offset;
+    }
+
+    header->dataStart = offset;
+
+    // close page and return
+    bm.unfixPage(bf, true);
 }

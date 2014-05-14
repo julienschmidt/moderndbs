@@ -15,7 +15,7 @@ uint64_t extractPage(const TID& tid) {
 
 const unsigned initialSize = 100; // in (slotted) pages
 const unsigned maxInserts = 1000ul*1000ul;
-const unsigned maxUpdates = 100;
+const unsigned maxUpdates = 10000;
 const vector<string> testData = {
    "640K ought to be enough for anybody",
    "Beware of bugs in the above code; I have only proved it correct, not tried it",
@@ -75,6 +75,16 @@ int main(int argc, char** argv) {
       usage[pageId] += need;
 
       inserts++;
+   }
+
+   // Lookups
+   for (auto p : values) {
+      TID tid = p.first;
+      const std::string& value = testData[p.second];
+      unsigned len = value.size();
+      Record rec = sp.lookup(tid);
+      assert(rec.getLen() == len);
+      assert(memcmp(rec.getData(), value.c_str(), len)==0);
    }
 
    unsigned deletes = inserts/10;

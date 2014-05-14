@@ -61,6 +61,10 @@ class SPSegment : public Segment {
 
     // Updates the record pointed to by tid with the content of record r
     bool update(TID tid, const Record& r);
+
+  private:
+    // compacts the given page by moving records
+    void compactPage(uint32_t pageID);
 };
 
 #endif  // SPSEGMENT_H_
