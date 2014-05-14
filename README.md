@@ -55,4 +55,19 @@ $ make slotted
 $ ./bin/slotted
 ```
 
+## [Assignment 04: BTree](https://github.com/julienschmidt/moderndbs/releases/tag/assignment04)
+
+Run with:
+```bash
+$ make btree
+$ ./bin/btree [n=1000000]
+```
+
+For example:
+```bash
+$ make btree
+$ ./bin/btree 50000
+```
+
+
 
