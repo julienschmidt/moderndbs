@@ -1,7 +1,5 @@
 # moderndbs
 
-Team: Andreas Geiger, Julien Schmidt
-
 ## [Assignment 01: External Sorting](https://github.com/julienschmidt/moderndbs/releases/tag/assignment01)
 
 Run with:
