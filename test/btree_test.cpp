@@ -6,7 +6,11 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "MyDatabaseIncludes.hpp"
+// DEBUG
+#include <iostream>
+
+#include "../src/BufferManager.hpp"
+#include "../src/BTree.hpp"
 
 /* Comparator functor for uint64_t*/
 struct MyCustomUInt64Cmp {
@@ -40,8 +44,8 @@ struct MyCustomIntPairCmp {
    }
 };
 
-template <class T>
-const T& getKey(const uint64_t& i);
+template <class K>
+const K& getKey(const uint64_t& i);
 
 template <>
 const uint64_t& getKey(const uint64_t& i) { return i; }
@@ -64,45 +68,53 @@ const IntPair& getKey(const uint64_t& i) {
 }
 
 
-template <class T, class CMP>
+template<class K, class CMP>
 void test(uint64_t n) {
    // Set up stuff, you probably have to change something here to match to your interfaces
-   BufferManager bm;
-   // ...
-   BTree<T, CMP> bTree(segment);
+   BufferManager bm(100);
+   BTree<K, CMP> bTree(bm, 2);
+
+   std::cout << "Initialized" << std::endl<< std::endl;
 
    // Insert values
-   for (uint64_t i=0; i<n; ++i)
-      bTree.insert(getKey<T>(i),static_cast<TID>(i*i));
-   assert(bTree.size()==n);
+   for (uint32_t i=0; i<n; ++i) {
+      bTree.insert(getKey<K>(i),TID{i,i});
+      std::cout << "inserted " << i << std::endl << std::endl;
+   }
+   //assert(bTree.size()==n);
+
+   std::cout << "end insert" << std::endl<< std::endl;
 
    // Check if they can be retrieved
-   for (uint64_t i=0; i<n; ++i) {
+   for (uint32_t i=0; i<n; ++i) {
+      std::cout << "lookup " << i << std::endl;
       TID tid;
-      assert(bTree.lookup(getKey<T>(i),tid));
-      assert(tid==i*i);
+      assert(bTree.lookup(getKey<K>(i),tid));
+      assert(tid==(TID{i,i}));
    }
 
+   std::cout << "end lookup" << std::endl<< std::endl;
+
    // Delete some values
-   for (uint64_t i=0; i<n; ++i)
+   for (uint32_t i=0; i<n; ++i)
       if ((i%7)==0)
-         bTree.erase(getKey<T>(i));
+         bTree.erase(getKey<K>(i));
 
    // Check if the right ones have been deleted
-   for (uint64_t i=0; i<n; ++i) {
+   for (uint32_t i=0; i<n; ++i) {
       TID tid;
       if ((i%7)==0) {
-         assert(!bTree.lookup(getKey<T>(i),tid));
+         assert(!bTree.lookup(getKey<K>(i),tid));
       } else {
-         assert(bTree.lookup(getKey<T>(i),tid));
-         assert(tid==i*i);
+         assert(bTree.lookup(getKey<K>(i),tid));
+         assert(tid==(TID{i,i}));
       }
    }
 
    // Delete everything
-   for (uint64_t i=0; i<n; ++i)
-      bTree.erase(getKey<T>(i));
-   assert(bTree.size()==0);
+   for (uint32_t i=0; i<n; ++i)
+      bTree.erase(getKey<K>(i));
+   //assert(bTree.size()==0);
 }
 
 int main(int argc, char* argv[]) {
@@ -113,9 +125,11 @@ int main(int argc, char* argv[]) {
    test<uint64_t, MyCustomUInt64Cmp>(n);
 
    // Test index with 20 character strings
-   test<Char<20>, MyCustomCharCmp<20>>(n);
+   //test<Char<20>, MyCustomCharCmp<20>>(n);
 
    // Test index with compound key
-   test<IntPair, MyCustomIntPairCmp>(n);
-   return 0;
+   //test<IntPair, MyCustomIntPairCmp>(n);
+
+   std::cout << "TEST SUCCESSFUL!" << std::endl;
+   return EXIT_SUCCESS;
 }

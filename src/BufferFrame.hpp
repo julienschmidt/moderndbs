@@ -16,6 +16,7 @@ class BufferFrame {
     BufferFrame(int segmentFd, uint64_t pageID);
     ~BufferFrame();
     void* getData(); // returns the actual data contained on the page
+    uint64_t getID() { return id; }
     void flush();
 
   private:
