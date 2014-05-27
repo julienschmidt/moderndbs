@@ -119,16 +119,16 @@ void test(uint64_t n) {
 
 int main(int argc, char* argv[]) {
    // Get command line argument
-   const uint64_t n = (argc==2) ? strtoul(argv[1], NULL, 10) : 1000*1000ul;
+   const uint64_t n = (argc==2) ? strtoul(argv[1], NULL, 10) : 500; //1000*1000ul;
 
    // Test index with 64bit unsigned integers
    test<uint64_t, MyCustomUInt64Cmp>(n);
 
    // Test index with 20 character strings
-   //test<Char<20>, MyCustomCharCmp<20>>(n);
+   test<Char<20>, MyCustomCharCmp<20>>(n);
 
    // Test index with compound key
-   //test<IntPair, MyCustomIntPairCmp>(n);
+   test<IntPair, MyCustomIntPairCmp>(n);
 
    std::cout << "TEST SUCCESSFUL!" << std::endl;
    return EXIT_SUCCESS;
