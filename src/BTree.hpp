@@ -247,7 +247,7 @@ class BTree : public Segment {
         Node*        node = static_cast<Node*>(bf->getData());
 
         // parent
-        BufferFrame* bfPar = bf; // root has no parent
+        BufferFrame* bfPar = NULL; // root has no parent
 
         // uses "safe" inner pages: split all full nodes on the way down
         while(true) {
@@ -259,15 +259,15 @@ class BTree : public Segment {
                 K oldMax, newMax; // greatest key values
 
                 // check if splitting root
-                if (bf->getID() == root) {
+                if (bfPar == NULL) {
                     LeafNode* oldRoot = reinterpret_cast<LeafNode*>(node);
                     oldMax = oldRoot->maxKey();
 
                     // move current root node to a new page
                     memcpy(bfNew->getData(), bf->getData(), blocksize);
-                    //bfPar = bf;
-                    bf   = bfNew;
-                    node = static_cast<Node*>(bf->getData());
+                    bfPar = bf;
+                    bf    = bfNew;
+                    node  = static_cast<Node*>(bf->getData());
                     std::cout << "moved old root to pageID: " << newID << std::endl;
 
                     // init new root
@@ -320,6 +320,11 @@ class BTree : public Segment {
                     LeafNode* leaf = reinterpret_cast<LeafNode*>(node);
                     leaf->insert(key, tid);
 
+                    if (bfPar != NULL) {
+                        // TODO: could this page be dirty?
+                        bm.unfixPage(*bfPar, false);
+                    }
+
                     bm.unfixPage(*bf, true);
                     return;
                 } else {
@@ -329,7 +334,11 @@ class BTree : public Segment {
 
                     // lock coupling: fix child before releasing parent
                     BufferFrame* bfNew = &bm.fixPage(nextID, true);
-                    bm.unfixPage(*bf, false);
+                    if (bfPar != NULL) {
+                        // TODO: could this page be dirty?
+                        bm.unfixPage(*bfPar, false);
+                    }
+                    bfPar = bf;
                     bf = bfNew;
 
                     node = static_cast<Node*>(bf->getData());
