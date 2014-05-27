@@ -1,6 +1,8 @@
 #ifndef BTREE_H_
 #define BTREE_H_
 
+#include <algorithm>
+
 #include "Segment.hpp"
 #include "TID.hpp"
 
@@ -9,9 +11,6 @@
 
 template <class K, class LESS = std::less<K>>
 class BTree : public Segment {
-    // index used to indicate that a key was not found
-    static const unsigned keyNotFound = -1;
-
     // compare less function
     LESS less;
 
@@ -51,16 +50,11 @@ class BTree : public Segment {
         }
 
         inline K maxKey() {
-            return keys[this->count-1];
+            return keys[this->count-2];
         }
 
-        // TODO: binary search
         unsigned getKeyIndex(K key) {
-            for (unsigned i = 0; i < this->count; ++i) {
-                if(less(key, keys[i]))
-                    return i;
-            }
-            return this->count; // greater than all existing keys
+            return std::lower_bound(keys, keys+this->count-1, key, less)-keys;
         }
 
         uint64_t getChild(K key) {
@@ -70,15 +64,16 @@ class BTree : public Segment {
         void insert(K key, uint64_t child) {
             std::cout << " InnerNode::insert " << std::endl;
             unsigned i = getKeyIndex(key);
-            if (i == keyNotFound) {
-                //i = this->count; // greater than all existing keys
-            } else if (!less(key, keys[i])) { // existing key? (checks other direction)
-                children[i] = child; // overwrite existing value
-                return;
-            } else {
-                // move existing entries
-                memmove(keys+i+1, keys+i, (this->count-i) * sizeof(K));
-                memmove(children+i+1, children+i, (this->count-i+1) * sizeof(uint64_t));
+
+            if (i < this->count-1) {
+                if (!less(key, keys[i])) { // existing key? (checks other direction)
+                    children[i] = child; // overwrite existing value
+                    return;
+                } else {
+                    // move existing entries
+                    memmove(keys+i+1, keys+i, (this->count-i) * sizeof(K));
+                    memmove(children+i+1, children+i, (this->count-i+1) * sizeof(uint64_t));
+                }
             }
 
             assert(!isFull());
@@ -128,21 +123,15 @@ class BTree : public Segment {
             return keys[this->count-1];
         }
 
-        // TODO: binary search
         // returns index of first existing key >= input key
         unsigned getKeyIndex(K key) {
-            for (unsigned i = 0; i < this->count; ++i) {
-                if (!less(keys[i], key)) {
-                    return i;
-                }
-            }
-            return keyNotFound;
+            return std::lower_bound(keys, keys+this->count, key, less)-keys;
         }
 
         bool getTID(K key, TID& tid) {
             unsigned i = getKeyIndex(key);
 
-            if(i == keyNotFound || less(key, keys[i]))
+            if(i == this->count || less(key, keys[i]))
                 return false;
 
             tid = tids[i];
@@ -152,15 +141,15 @@ class BTree : public Segment {
         void insert(K key, TID tid) {
             std::cout << " LeafNode::insert " << std::endl;
             unsigned i = getKeyIndex(key);
-            if (i == keyNotFound) {
-                i = this->count; // greater than all existing keys
-            } else if (!less(key, keys[i])) { // existing key? (checks other direction)
-                tids[i] = tid; // overwrite existing value
-                return;
-            } else {
-                // move existing entries
-                memmove(keys+i+1, keys+i, (this->count-i) * sizeof(K));
-                memmove(tids+i+1, tids+i, (this->count-i) * sizeof(TID));
+            if (i < this->count) {
+                if (!less(key, keys[i])) { // existing key? (checks other direction)
+                    tids[i] = tid; // overwrite existing value
+                    return;
+                } else {
+                    // move existing entries
+                    memmove(keys+i+1, keys+i, (this->count-i) * sizeof(K));
+                    memmove(tids+i+1, tids+i, (this->count-i) * sizeof(TID));
+                }
             }
 
             assert(!isFull());
@@ -176,7 +165,7 @@ class BTree : public Segment {
         // returns false if the key was not found
         bool remove(K key) {
             unsigned i = getKeyIndex(key);
-            if (i == keyNotFound)
+            if (i == this->count)
                 return false;
 
             // move remaining entries
