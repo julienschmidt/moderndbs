@@ -12,6 +12,9 @@ class BTree : public Segment {
     // index used to indicate that a key was not found
     static const unsigned keyNotFound = -1;
 
+    // compare less function
+    LESS less;
+
     class Node {
       protected:
         // LSN for recovery
@@ -47,6 +50,10 @@ class BTree : public Segment {
             return this->count == order+1;
         }
 
+        inline K maxKey() {
+            return keys[this->count-1];
+        }
+
         // TODO: binary search
         unsigned getKeyIndex(K key) {
             for (unsigned i = 0; i < this->count; ++i) {
@@ -58,6 +65,41 @@ class BTree : public Segment {
 
         uint64_t getChild(K key) {
             return children[getKeyIndex(key)];
+        }
+
+        void insert(K key, uint64_t child) {
+            std::cout << " InnerNode::insert " << std::endl;
+            unsigned i = getKeyIndex(key);
+            if (i == keyNotFound) {
+                //i = this->count; // greater than all existing keys
+            } else if (!less(key, keys[i])) { // existing key? (checks other direction)
+                children[i] = child; // overwrite existing value
+                return;
+            } else {
+                // move existing entries
+                memmove(keys+i+1, keys+i, (this->count-i) * sizeof(K));
+                memmove(children+i+1, children+i, (this->count-i+1) * sizeof(uint64_t));
+            }
+
+            assert(!isFull());
+
+            // insert new entry
+            keys[i] = key;
+            children[i] = child;
+            this->count++;
+
+            std::cout << "new leaf size " << this->count << std::endl;
+        }
+
+        void split(InnerNode* newInner) {
+            assert(isFull());
+
+            unsigned middle  = this->count / 2;
+            this->count     -= middle;
+            newInner->count  = middle;
+
+            memcpy(newInner->keys,     keys+middle,     middle * sizeof(K));
+            memcpy(newInner->children, children+middle, middle * sizeof(uint64_t));
         }
     };
 
@@ -82,11 +124,15 @@ class BTree : public Segment {
             return this->count == order;
         }
 
+        inline K maxKey() {
+            return keys[this->count-1];
+        }
+
         // TODO: binary search
         // returns index of first existing key >= input key
         unsigned getKeyIndex(K key) {
             for (unsigned i = 0; i < this->count; ++i) {
-                if (!less(keys[i], key)) { // TODO: check == ?
+                if (!less(keys[i], key)) {
                     return i;
                 }
             }
@@ -139,6 +185,17 @@ class BTree : public Segment {
             this->count--;
             return true;
         }
+
+        void split(LeafNode* newLeaf) {
+            assert(isFull());
+
+            unsigned middle = this->count / 2;
+            this->count    -= middle;
+            newLeaf->count  = middle;
+
+            memcpy(newLeaf->keys, keys+middle, middle * sizeof(K));
+            memcpy(newLeaf->tids, tids+middle, middle * sizeof(TID));
+        }
     };
 
   public:
@@ -186,29 +243,104 @@ class BTree : public Segment {
     6. create a new root if needed
     */
     void insert(K key, TID tid) {
-        BufferFrame& bf      = bm.fixPage(root, true);
-        Node*        current = static_cast<Node*>(bf.getData());
+        BufferFrame* bf   = &bm.fixPage(root, true);
+        Node*        node = static_cast<Node*>(bf->getData());
 
-        assert(!current->isFull());
-        if (!current->isFull()) {
-            assert(current->isLeaf());
-            if (current->isLeaf()) {
-                // found the leaf where the entry must be inserted
-                LeafNode* leaf = reinterpret_cast<LeafNode*>(current);
-                leaf->insert(key, tid);
+        // parent
+        BufferFrame* bfPar = bf; // root has no parent
 
-                bm.unfixPage(bf, true);
-            } else {
-                // TODO: traverse
+        // uses "safe" inner pages: split all full nodes on the way down
+        while(true) {
+            if (node->isFull()) { // must split current node
+                uint64_t     newID = reservePage();
+                BufferFrame* bfNew = &bm.fixPage(newID, true);
+                std::cout << "new pageID: " << newID << std::endl;
+
+                K oldMax, newMax; // greatest key values
+
+                // check if splitting root
+                if (bf->getID() == root) {
+                    LeafNode* oldRoot = reinterpret_cast<LeafNode*>(node);
+                    oldMax = oldRoot->maxKey();
+
+                    // move current root node to a new page
+                    memcpy(bfNew->getData(), bf->getData(), blocksize);
+                    //bfPar = bf;
+                    bf   = bfNew;
+                    node = static_cast<Node*>(bf->getData());
+                    std::cout << "moved old root to pageID: " << newID << std::endl;
+
+                    // init new root
+                    InnerNode* newRoot = new (bfPar->getData()) InnerNode();
+
+                    // insert old root
+                    newRoot->insert(oldMax, newID);
+
+                    // reserve another page for splitting the old root
+                    newID = reservePage();
+                    bfNew = &bm.fixPage(newID, true);
+                    std::cout << "new pageID: " << newID << std::endl;
+                }
+
+                if (node->isLeaf()) {
+                    // construct new leaf and move half of the entries
+                    LeafNode* newLeaf = new (bfNew->getData()) LeafNode();
+                    LeafNode* oldLeaf = reinterpret_cast<LeafNode*>(node);
+                    oldLeaf->split(newLeaf);
+                    oldMax = oldLeaf->maxKey();
+                    newMax = newLeaf->maxKey();
+                } else {
+                    // construct new inner node and move half of the entries
+                    InnerNode* newInner = new (bfNew->getData()) InnerNode();
+                    InnerNode* oldInner = reinterpret_cast<InnerNode*>(node);
+                    oldInner->split(newInner);
+                    oldMax = oldInner->maxKey();
+                    newMax = newInner->maxKey();
+                }
+
+                // insert / update nodes in parent
+                InnerNode* parent = static_cast<InnerNode*>(bfPar->getData());
+                parent->insert(oldMax, bf->getID());
+                parent->insert(newMax, bfNew->getID()); // updates old entry
+
+                bm.unfixPage(*bfPar, true);
+                bfPar = bf;
+
+                // insert entry
+                if (less(oldMax, key)) {
+                    bm.unfixPage(*bf, true);
+                    bf = bfNew;
+                    node = static_cast<Node*>(bf->getData());
+                } else {
+                    bm.unfixPage(*bfNew, true);
+                }
+            } else { // enough space
+                if (node->isLeaf()) {
+                    // found the leaf where the entry must be inserted
+                    LeafNode* leaf = reinterpret_cast<LeafNode*>(node);
+                    leaf->insert(key, tid);
+
+                    bm.unfixPage(*bf, true);
+                    return;
+                } else {
+                    // traverse without splitting
+                    InnerNode* inner  = reinterpret_cast<InnerNode*>(node);
+                    uint64_t   nextID = inner->getChild(key);
+
+                    // lock coupling: fix child before releasing parent
+                    BufferFrame* bfNew = &bm.fixPage(nextID, true);
+                    bm.unfixPage(*bf, false);
+                    bf = bfNew;
+
+                    node = static_cast<Node*>(bf->getData());
+                }
             }
-        } else {
-            // TODO: split node
         }
     };
 
 
     /*
-    TODO: Delete
+    Delete
     1. lookup the appropriate leaf page
     2. remove the entry from the current page
     3. is the current page at least half full?
@@ -242,19 +374,26 @@ class BTree : public Segment {
 
         // find leaf
         while(!node->isLeaf()) {
-            std::cout << "getChild " << std::endl;
             InnerNode* inner  = reinterpret_cast<InnerNode*>(node);
             uint64_t   nextID = inner->getChild(key);
-            bm.unfixPage(bf, false);
 
-            // get next node
-            bf   = bm.fixPage(nextID, exclusive);
+            // lock coupling: fix child before releasing parent
+            BufferFrame& bfNew = bm.fixPage(nextID, exclusive);
+            bm.unfixPage(bf, false);
+            bf = bfNew;
+
             node = static_cast<Node*>(bf.getData());
         }
 
         assert(node->isLeaf());
         *leafPtr = reinterpret_cast<LeafNode*>(node);
         return bf;
+    }
+
+    uint64_t reservePage() {
+        // size is atomic
+        // TODO: | segmentID + shiften
+        return size++;
     }
 };
 
