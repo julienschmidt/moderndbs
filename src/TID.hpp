@@ -15,6 +15,11 @@ struct TID {
     }
 };
 
+std::ostream& operator<< (std::ostream& out, const TID& tid) {
+    out << "TID{" << tid.pageID << "," << tid.slotID << "}";
+    return out;
+}
+
 // implement hash func for std::hash
 namespace std {
     template<>
