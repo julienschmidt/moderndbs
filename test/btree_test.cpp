@@ -90,6 +90,7 @@ void test(uint64_t n) {
       std::cout << "lookup " << i << std::endl;
       TID tid;
       assert(bTree.lookup(getKey<K>(i),tid));
+      std::cout << "i=" << i << " " << tid << std::endl;
       assert(tid==(TID{i,i}));
    }
 
@@ -119,13 +120,13 @@ void test(uint64_t n) {
 
 int main(int argc, char* argv[]) {
    // Get command line argument
-   const uint64_t n = (argc==2) ? strtoul(argv[1], NULL, 10) : 500; //1000*1000ul;
+   const uint64_t n = (argc==2) ? strtoul(argv[1], NULL, 10) : 10000; //1000*1000ul;
 
    // Test index with 64bit unsigned integers
    test<uint64_t, MyCustomUInt64Cmp>(n);
 
    // Test index with 20 character strings
-   //test<Char<20>, MyCustomCharCmp<20>>(n);
+   test<Char<20>, MyCustomCharCmp<20>>(n);
 
    // Test index with compound key
    test<IntPair, MyCustomIntPairCmp>(n);

@@ -64,7 +64,7 @@ $ ./bin/btree [n=1000000]
 For example:
 ```bash
 $ make btree
-$ ./bin/btree 50000
+$ ./bin/btree 10000
 ```
 
 
