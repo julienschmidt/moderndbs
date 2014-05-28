@@ -276,11 +276,13 @@ class BTree : public Segment {
         Node*        node = static_cast<Node*>(bf->getData());
 
         // parent
-        BufferFrame* bfPar = NULL; // root has no parent
+        BufferFrame* bfPar    = NULL;  // root has no parent
+        bool         parDirty = false; // was the page modified?
 
         // uses "safe" inner pages: split all full nodes on the way down
         while(true) {
             if (node->isFull()) { // must split current node
+                // open a new page where the new node will be written to
                 uint64_t     newID = reservePage();
                 BufferFrame* bfNew = &bm.fixPage(newID, true);
                 std::cout << "  split "<< bf->getID() <<"; new pageID: " << newID << " "  << node->isLeaf() << std::endl;
@@ -296,7 +298,7 @@ class BTree : public Segment {
                     separator = oldInner->split(*bfNew);
                 }
 
-                // check if splitted the root
+                // check if splitted node is the root
                 if (bfPar == NULL) {
                     // reserve another page to move the old root to
                     uint64_t     moveID = reservePage();
@@ -307,6 +309,7 @@ class BTree : public Segment {
 
                     // init new root and insert old root as leftmost child
                     new (bf->getData()) InnerNode(moveID, bfNew->getID(), separator);
+                    parDirty = true;
                     bfPar = bf;
                     bf    = bfMove;
                 } else {
@@ -316,7 +319,8 @@ class BTree : public Segment {
                     std::cout << "----- insert ------" << std::endl;
                     parent->insert(separator, bfNew->getID());
                     parent->print();
-                    bm.unfixPage(*bfPar, true);
+                    parDirty = true;
+                    //bm.unfixPage(*bfPar, true);
                     //bfPar = bf;
                 }
 
@@ -336,8 +340,7 @@ class BTree : public Segment {
                     leaf->insert(key, tid);
 
                     if (bfPar != NULL) {
-                        // TODO: could this page be dirty?
-                        bm.unfixPage(*bfPar, false);
+                        bm.unfixPage(*bfPar, parDirty);
                     }
 
                     bm.unfixPage(*bf, true);
@@ -350,11 +353,11 @@ class BTree : public Segment {
                     // lock coupling: fix child before releasing parent
                     BufferFrame* bfNew = &bm.fixPage(nextID, true);
                     if (bfPar != NULL) {
-                        // TODO: could this page be dirty?
-                        bm.unfixPage(*bfPar, false);
+                        bm.unfixPage(*bfPar, parDirty);
                     }
-                    bfPar = bf;
-                    bf = bfNew;
+                    bfPar    = bf;
+                    bf       = bfNew;
+                    parDirty = false;
 
                     node = static_cast<Node*>(bf->getData());
                 }
