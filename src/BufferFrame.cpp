@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <iostream>
 #include <pthread.h>
 #include <unistd.h>
@@ -61,13 +62,14 @@ void BufferFrame::flush() {
 void BufferFrame::loadData() {
 #ifdef DEBUG
     if (state == state_t::Dirty)
-        std::cout << "WARNING: Data loss on load? (state == Dirty)" << std::endl;
+        std::cerr << "WARNING: Data loss on load? (state == Dirty)" << std::endl;
     else if (state == state_t::Clean)
-        std::cout << "WARNING: Unnecessary data load (state == Clean)" << std::endl;
+        std::cerr << "WARNING: Unnecessary data load (state == Clean)" << std::endl;
 #endif
 
     // in-memory buffer
     data = malloc(blocksize);
+    assert(data != NULL);
 
     // read data from file to buffer
     pread(fd, data, blocksize, offset);
