@@ -75,7 +75,10 @@ void test(uint64_t n) {
    BTree<K, CMP> bTree(bm, 2);
 
    // Insert values
-   for (uint32_t i=0; i<n; ++i) {
+   for (uint32_t i=0; i<n; i+=2) {
+      bTree.insert(getKey<K>(i),TID{i,i});
+   }
+   for (uint32_t i=1; i<n; i+=2) {
       bTree.insert(getKey<K>(i),TID{i,i});
    }
    //assert(bTree.size()==n);

@@ -6,9 +6,6 @@
 #include "Segment.hpp"
 #include "TID.hpp"
 
-// DEBUG
-#include <iostream>
-
 template <class K, class LESS = std::less<K>>
 class BTree : public Segment {
     // compare less function
@@ -70,16 +67,16 @@ class BTree : public Segment {
             unsigned i = getKeyIndex(key);
 
             if (i < this->count-1) {
-                assert(false);
-                /*if (!less(key, keys[i])) { // existing key? (checks other direction)
+                // compare less function
+                LESS less;
+                if (!less(key, keys[i])) { // existing key? (checks other direction)
                     children[i] = child; // overwrite existing value
-                    std::cout << "  overwritten i=" << i << std::endl;
                     return;
-                } else {*/
-                // move existing entries
-                memmove(keys+i+1, keys+i, (this->count-i-1) * sizeof(K));
-                memmove(children+i+2, children+i+1, (this->count-i-1) * sizeof(uint64_t));
-                /*}*/
+                } else {
+                    // move existing entries
+                    memmove(keys+i+1, keys+i, (this->count-i-1) * sizeof(K));
+                    memmove(children+i+2, children+i+1, (this->count-i-1) * sizeof(uint64_t));
+                }
             }
 
             // insert new entry
