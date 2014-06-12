@@ -74,27 +74,18 @@ void test(uint64_t n) {
    BufferManager bm(100);
    BTree<K, CMP> bTree(bm, 2);
 
-   std::cout << "Initialized" << std::endl<< std::endl;
-
    // Insert values
    for (uint32_t i=0; i<n; ++i) {
       bTree.insert(getKey<K>(i),TID{i,i});
-      std::cout << "inserted " << i << std::endl << std::endl;
    }
    //assert(bTree.size()==n);
 
-   std::cout << "end insert" << std::endl<< std::endl;
-
    // Check if they can be retrieved
    for (uint32_t i=0; i<n; ++i) {
-      std::cout << "lookup " << i << std::endl;
       TID tid;
       assert(bTree.lookup(getKey<K>(i),tid));
-      std::cout << "i=" << i << " " << tid << std::endl;
       assert(tid==(TID{i,i}));
    }
-
-   std::cout << "end lookup" << std::endl<< std::endl;
 
    // Delete some values
    for (uint32_t i=0; i<n; ++i)
