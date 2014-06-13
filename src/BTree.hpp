@@ -240,8 +240,9 @@ class BTree : public Segment {
     6. create a new root if needed
     */
     void insert(K key, TID tid) {
-        BufferFrame* bf   = &bm.fixPage(root, true);
-        Node*        node = static_cast<Node*>(bf->getData());
+        BufferFrame* bf      = &bm.fixPage(root, true);
+        bool         bfDirty = false;
+        Node*        node    = static_cast<Node*>(bf->getData());
 
         // parent
         BufferFrame* bfPar    = NULL;  // root has no parent
@@ -277,14 +278,16 @@ class BTree : public Segment {
                     // init new root and insert old root as leftmost child
                     new (bf->getData()) InnerNode(moveID, bfNew->getID(), separator);
 
-                    parDirty = true;
                     bfPar    = bf;
                     bf       = bfMove;
+                    bfDirty  = true;
+                    parDirty = true;
                 } else {
                     // update parent
                     InnerNode* parent = static_cast<InnerNode*>(bfPar->getData());
 
                     parent->insert(separator, bfNew->getID());
+                    bfDirty  = true;
                     parDirty = true;
                 }
 
@@ -323,7 +326,8 @@ class BTree : public Segment {
 
                     bfPar    = bf;
                     bf       = bfNew;
-                    //parDirty = false;
+                    parDirty = bfDirty;
+                    bfDirty  = false;
 
                     node = static_cast<Node*>(bf->getData());
                 }
