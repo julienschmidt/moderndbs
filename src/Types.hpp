@@ -10,7 +10,7 @@
  * Types
  */
 namespace Types {
-   enum class Tag : unsigned {Integer, Char};
+   enum class Tag : unsigned {Integer, Char, String};
 }
 
 
