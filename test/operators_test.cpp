@@ -9,6 +9,15 @@
 #include "../src/Schema.hpp"
 #include "../src/SPSegment.hpp"
 
+const vector<string> names = {
+    "Anna",
+    "Bob",
+    "Chris",
+    "Jeremy-Pascal",
+    "Estefania-Celenta",
+    "Rambo Ramon Rainer"
+};
+
 void testRegister() {
     Register reg{};
 
@@ -42,8 +51,14 @@ int main(int argc, char* argv[]) {
     attr2.len  = sizeof(int64_t);
     rel.attributes.push_back(attr2);
 
+    Schema::Relation::Attribute attr3{};
+    attr3.name = "Name";
+    attr3.type = Types::Tag::Char;
+    attr3.len  = 32;
+    rel.attributes.push_back(attr3);
+
     // Fill Relation with some values
-    const size_t  recordSize  = 2*sizeof(int64_t);
+    const size_t  recordSize  = 2*sizeof(int64_t)+32;
     const int64_t recordCount = 10;
     for (int64_t i = 0; i < recordCount; ++i) {
         char data[recordSize];
@@ -51,6 +66,10 @@ int main(int argc, char* argv[]) {
         *intPtr = i;
         intPtr++;
         *intPtr = recordCount-1-i;
+        intPtr++;
+        char* namePtr = reinterpret_cast<char*>(intPtr);
+        memset(namePtr, '\0', 32);
+        strcpy(namePtr, names[i%names.size()].c_str());
         sp.insert(Record(recordSize, data));
     }
 
@@ -59,11 +78,13 @@ int main(int argc, char* argv[]) {
     int64_t j = 0;
     while (ts.next()) {
         vector<Register*> regs = ts.getOutput();
-        assert(regs.size() == 2);
+        assert(regs.size() == 3);
         assert(regs[0]->isInteger());
         assert(regs[0]->getInteger() == j);
         assert(regs[1]->isInteger());
         assert(regs[1]->getInteger() == recordCount-1-j);
+        assert(regs[2]->isString());
+        assert(regs[2]->getString().compare(names[j%names.size()]) == 0);
         j++;
     }
     assert(j == recordCount);

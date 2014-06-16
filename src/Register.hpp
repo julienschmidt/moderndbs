@@ -30,15 +30,14 @@ class Register {
 
 void Register::load(Types::Tag type, void* ptr) {
     switch (type) {
-    case Types::Tag::Integer: {
+    case Types::Tag::Integer:
         setInteger(*reinterpret_cast<int64_t*>(ptr));
         return;
-    }
 
-    /*case Types::Tag::String:
-        // TODO
-        // malloc!
-        return;*/
+    case Types::Tag::Char: {
+        setString(reinterpret_cast<char*>(ptr));
+        return;
+    }
 
     default:
         throw logic_error("Unknown type");
@@ -73,12 +72,12 @@ string Register::getString() const {
     if (type != Types::Tag::String || value == NULL) {
         throw runtime_error("Not a valid string");
     }
-    return *reinterpret_cast<string*>(value);
+    return *static_cast<string*>(value);
 }
 
 void Register::setString(const string& s) {
     type  = Types::Tag::String;
-    value = (void*) &s;
+    value = new string(s);
 }
 
 bool Register::operator<(const Register& rhs) {
