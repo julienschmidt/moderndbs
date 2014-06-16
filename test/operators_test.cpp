@@ -4,6 +4,7 @@
 #include <string>
 
 #include "../src/operators/Print.hpp"
+#include "../src/operators/Projection.hpp"
 #include "../src/operators/TableScan.hpp"
 #include "../src/BufferManager.hpp"
 #include "../src/Register.hpp"
@@ -99,6 +100,25 @@ int main(int argc, char* argv[]) {
         prt.getOutput();
     }
     prt.close();
+
+    // Test Projection
+    std::vector<unsigned> IDs;
+    IDs.push_back(0);
+    IDs.push_back(2);
+    Projection prj(ts, IDs);
+    prj.open();
+    j = 0;
+    while (prj.next()) {
+        vector<Register*> regs = prj.getOutput();
+        assert(regs.size() == 2);
+        assert(regs[0]->isInteger());
+        assert(regs[0]->getInteger() == j);
+        assert(regs[1]->isString());
+        assert(regs[1]->getString().compare(names[j%names.size()]) == 0);
+        j++;
+    }
+    assert(j == recordCount);
+    prj.close();
 
     std::cout << "TEST SUCCESSFUL!" << std::endl;
     return EXIT_SUCCESS;
