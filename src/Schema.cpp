@@ -1,5 +1,6 @@
 #include "Schema.hpp"
 
+#include <stdexcept>
 #include <sstream>
 
 static std::string type(const Schema::Relation::Attribute& attr) {
@@ -17,8 +18,9 @@ static std::string type(const Schema::Relation::Attribute& attr) {
          ss << "Char(" << attr.len << ")";
          return ss.str();
       }
+      default:
+         throw std::logic_error("Unknown type");
    }
-   throw;
 }
 
 std::string Schema::toString() const {

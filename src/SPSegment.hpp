@@ -36,6 +36,10 @@ class SPSegment : public Segment {
             return (offset == 1);
         }
 
+        inline bool isRecord() {
+            return (offset >= 2);
+        }
+
         inline TID getIndirectionTID() {
             return TID{(uint32_t) (length >> 32), (uint32_t) length};
         }
@@ -65,6 +69,8 @@ class SPSegment : public Segment {
   private:
     // compacts the given page by moving records
     void compactPage(uint32_t pageID);
+
+  friend class TableScan;
 };
 
 #endif  // SPSEGMENT_H_

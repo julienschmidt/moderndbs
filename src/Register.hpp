@@ -13,6 +13,8 @@ class Register {
     void*      value;
 
   public:
+    void    load(Types::Tag, void*);
+
     bool    isInteger() const;
     int64_t getInteger() const;
     void    setInteger(const int64_t i);
@@ -26,14 +28,33 @@ class Register {
     size_t  computeHash();
 };
 
+void Register::load(Types::Tag type, void* ptr) {
+    switch (type) {
+    case Types::Tag::Integer: {
+        setInteger(*reinterpret_cast<int64_t*>(ptr));
+        return;
+    }
+
+    /*case Types::Tag::String:
+        // TODO
+        // malloc!
+        return;*/
+
+    default:
+        throw logic_error("Unknown type");
+    }
+}
+
 bool Register::isInteger() const {
     return type == Types::Tag::Integer;
 }
 
 int64_t Register::getInteger() const {
+    // We can store the value directly instead of using a pointer when pointers
+    // and the integer type have the same size
     static_assert(
         sizeof(void*) == sizeof(int64_t),
-        "int must be same size as pointers"
+        "int64_t must be same size as pointers"
     );
 
     return reinterpret_cast<int64_t>(value);

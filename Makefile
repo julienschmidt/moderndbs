@@ -14,8 +14,8 @@ buffer: test/buffer_test.cpp $(BUFFER_O)
 btree: test/btree_test.cpp $(BUFFER_O)
 	$(CC) $(CFLAGS) -o bin/btree test/btree_test.cpp $(BUFFER_O)
 
-operators: test/operators_test.cpp
-	$(CC) $(CFLAGS) -o bin/operators test/operators_test.cpp
+operators: test/operators_test.cpp src/SPSegment.cpp
+	$(CC) $(CFLAGS) -o bin/operators test/operators_test.cpp src/SPSegment.cpp $(BUFFER_O)
 
 schema: test/schema_test.cpp src/Parser.cpp src/Schema.cpp src/SchemaSegment.cpp $(BUFFER_O)
 	$(CC) $(CFLAGS) -o bin/schema test/schema_test.cpp src/Parser.cpp src/Schema.cpp src/SchemaSegment.cpp $(BUFFER_O)
