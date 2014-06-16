@@ -5,6 +5,7 @@
 
 #include "../src/operators/Print.hpp"
 #include "../src/operators/Projection.hpp"
+#include "../src/operators/Selection.hpp"
 #include "../src/operators/TableScan.hpp"
 #include "../src/BufferManager.hpp"
 #include "../src/Register.hpp"
@@ -119,6 +120,25 @@ int main(int argc, char* argv[]) {
     }
     assert(j == recordCount);
     prj.close();
+
+    // Test Selection
+    Register* constant = new Register;
+    constant->setString("Jeremy-Pascal");
+    Selection sel(ts, 2, constant);
+    sel.open();
+    j = 0;
+    while (sel.next()) {
+        vector<Register*> regs = sel.getOutput();
+        assert(regs.size() == 3);
+        assert(regs[0]->isInteger());
+        assert(regs[0]->getInteger()%3 == 0);
+        assert(regs[1]->isInteger());
+        assert(regs[2]->isString());
+        assert(regs[2]->getString().compare("Jeremy-Pascal") == 0);
+        j++;
+    }
+    assert(j == 2);
+    sel.close();
 
     std::cout << "TEST SUCCESSFUL!" << std::endl;
     return EXIT_SUCCESS;
