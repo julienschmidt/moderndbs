@@ -28,8 +28,10 @@ BufferFrame::~BufferFrame() {
     flush();
 
     // deallocate data, if necessary
-    if (data != NULL)
+    if (data != NULL) {
         free(data);
+        data = NULL;
+    }
 }
 
 void BufferFrame::lock(bool exclusive) {

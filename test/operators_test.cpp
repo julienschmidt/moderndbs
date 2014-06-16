@@ -47,19 +47,12 @@ int main(int argc, char* argv[]) {
     const int64_t recordCount = 10;
     for (int64_t i = 0; i < recordCount; ++i) {
         char data[recordSize];
-
         int64_t* intPtr = reinterpret_cast<int64_t*>(data);
         *intPtr = i;
         intPtr++;
         *intPtr = recordCount-1-i;
         sp.insert(Record(recordSize, data));
     }
-
-    auto bf = bm.fixPage((sp.getID() << 48), false);
-    char* data   = static_cast<char*>(bf.getData());
-    auto  header = reinterpret_cast<SPSegment::Header*>(data);
-    std::cout << "slotCount=" << header->slotCount << std::endl;
-    bm.unfixPage(bf, false);
 
     TableScan ts(rel, sp);
     ts.open();
