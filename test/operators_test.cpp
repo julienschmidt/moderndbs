@@ -3,6 +3,7 @@
 #include <iostream>
 #include <string>
 
+#include "../src/operators/Print.hpp"
 #include "../src/operators/TableScan.hpp"
 #include "../src/BufferManager.hpp"
 #include "../src/Register.hpp"
@@ -73,6 +74,7 @@ int main(int argc, char* argv[]) {
         sp.insert(Record(recordSize, data));
     }
 
+    // Test TableScan
     TableScan ts(rel, sp);
     ts.open();
     int64_t j = 0;
@@ -89,6 +91,14 @@ int main(int argc, char* argv[]) {
     }
     assert(j == recordCount);
     ts.close();
+
+    // Test Print
+    Print prt(ts, std::cout);
+    prt.open();
+    while (prt.next()) {
+        prt.getOutput();
+    }
+    prt.close();
 
     std::cout << "TEST SUCCESSFUL!" << std::endl;
     return EXIT_SUCCESS;

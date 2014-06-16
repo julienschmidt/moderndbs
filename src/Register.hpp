@@ -26,6 +26,8 @@ class Register {
     bool    operator<(const Register&);
     bool    operator==(const Register&);
     size_t  computeHash();
+
+  friend ostream& operator<< (ostream& out, const Register& reg);
 };
 
 void Register::load(Types::Tag type, void* ptr) {
@@ -123,6 +125,21 @@ size_t Register::computeHash() {
     case Types::Tag::String:
         hash<string> strHasher;
         return strHasher(getString());
+
+    default:
+        throw logic_error("Unknown type");
+    }
+}
+
+ostream& operator<<(ostream& out, const Register& reg) {
+    switch (reg.type) {
+    case Types::Tag::Integer:
+        out << reg.getInteger();
+        return out;
+
+    case Types::Tag::String:
+        out << reg.getString();
+        return out;
 
     default:
         throw logic_error("Unknown type");
