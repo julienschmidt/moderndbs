@@ -23,9 +23,9 @@ class Register {
     string  getString() const;
     void    setString(const string& s);
 
-    bool    operator<(const Register&);
-    bool    operator==(const Register&);
-    size_t  computeHash();
+    bool    operator<(const Register&) const;
+    bool    operator==(const Register&) const;
+    size_t  computeHash() const;
 
   friend ostream& operator<< (ostream& out, const Register& reg);
 };
@@ -82,7 +82,7 @@ void Register::setString(const string& s) {
     value = new string(s);
 }
 
-bool Register::operator<(const Register& rhs) {
+bool Register::operator<(const Register& rhs) const {
     if (type != rhs.type) {
         throw invalid_argument("Can not compare values of different types");
     }
@@ -99,9 +99,10 @@ bool Register::operator<(const Register& rhs) {
     }
 }
 
-bool Register::operator==(const Register& rhs) {
+bool Register::operator==(const Register& rhs) const {
     if (type != rhs.type) {
-        throw invalid_argument("Can not compare values of different types");
+        //throw invalid_argument("Can not compare values of different types");
+        return false;
     }
 
     switch (type) {
@@ -112,11 +113,12 @@ bool Register::operator==(const Register& rhs) {
         return getString().compare(rhs.getString()) == 0;
 
     default:
-        throw logic_error("Unknown type");
+        //throw logic_error("Unknown type");
+        return false;
     }
 }
 
-size_t Register::computeHash() {
+size_t Register::computeHash() const {
     switch (type) {
     case Types::Tag::Integer:
         hash<int64_t> intHasher;
@@ -144,6 +146,16 @@ ostream& operator<<(ostream& out, const Register& reg) {
     default:
         throw logic_error("Unknown type");
     }
+}
+
+// implement hash func for std::hash (adaptor for computeHash func)
+namespace std {
+    template<>
+    struct hash<Register> {
+        size_t operator()(Register const& reg) const {
+            return reg.computeHash();
+        }
+    };
 }
 
 #endif  // REGISTER_H_

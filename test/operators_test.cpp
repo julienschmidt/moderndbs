@@ -3,6 +3,7 @@
 #include <iostream>
 #include <string>
 
+#include "../src/operators/HashJoin.hpp"
 #include "../src/operators/Print.hpp"
 #include "../src/operators/Projection.hpp"
 #include "../src/operators/Selection.hpp"
@@ -101,6 +102,7 @@ int main(int argc, char* argv[]) {
         prt.getOutput();
     }
     prt.close();
+    std::cout << std::endl;
 
     // Test Projection
     std::vector<unsigned> IDs;
@@ -139,6 +141,18 @@ int main(int argc, char* argv[]) {
     }
     assert(j == 2);
     sel.close();
+
+    // Test HashJoin
+    std::cout << "HashJoin:" << std::endl;
+    TableScan ts2(rel, sp);
+    HashJoin hj(ts, ts2, 0, 1);
+    Print prthj(hj, std::cout);
+    prthj.open();
+    while (prthj.next()) {
+        prthj.getOutput();
+    }
+    prthj.close();
+    std::cout << std::endl;
 
     std::cout << "TEST SUCCESSFUL!" << std::endl;
     return EXIT_SUCCESS;
