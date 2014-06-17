@@ -10,13 +10,19 @@
 
 using namespace std;
 
+typedef unordered_multimap<Register,vector<Register*>> registerMap;
+typedef registerMap::iterator                          registerIt;
+
 class HashJoin: public Operator {
-    Operator&                                 op1;
-    Operator&                                 op2;
-    unsigned                                  id1;
-    unsigned                                  id2;
-    vector<Register*>                         regs;
-    unordered_map<Register,vector<Register*>> map;
+    Operator&                   op1;
+    Operator&                   op2;
+    unsigned                    id1;
+    unsigned                    id2;
+    vector<Register*>           regs;  // output
+    vector<Register*>           regs2; // input from op2
+    registerMap                 map;
+    pair<registerIt,registerIt> range;
+    bool                        hasRange;
 
   public:
     HashJoin(Operator& op1, Operator& op2, unsigned id1, unsigned id2);
@@ -39,18 +45,31 @@ void HashJoin::open() {
         vector<Register*> regs1 = op1.getOutput();
         map.insert({*regs1[id1],regs1});
     }
+    hasRange = false;
 }
 
 bool HashJoin::next() {
-    // probe op2
-    while (op2.next()) {
-        // check hash
-        vector<Register*> regs2 = op2.getOutput();
-        auto got = map.find(*regs2[id2]);
-        if (got == map.end()) {
+    while (true) {
+        if (!hasRange) {
+            if(op2.next()) {
+                // probe op2
+                regs2 = op2.getOutput();
+                range = map.equal_range(*regs2[id2]);
+            } else {
+                return false;
+            }
+        }
+
+        // check if we have remaining matches
+        if (range.first == range.second) {
+            hasRange = false;
             continue; // no match
         }
-        vector<Register*> regs1 = got->second;
+
+        hasRange = true;
+
+        // build output
+        vector<Register*> regs1 = range.first->second;
         regs.clear();
         regs.reserve(regs1.size() + regs2.size());
         // append regs1
@@ -58,9 +77,9 @@ bool HashJoin::next() {
         // append regs2
         regs.insert (regs.end(),regs2.begin(),regs2.end());
 
+        ++range.first;
         return true;
     }
-    return false;
 }
 
 vector<Register*> HashJoin::getOutput() {

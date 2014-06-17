@@ -145,7 +145,7 @@ int main(int argc, char* argv[]) {
     // Test HashJoin
     std::cout << "HashJoin:" << std::endl;
     TableScan ts2(rel, sp);
-    HashJoin hj(ts, ts2, 0, 1);
+    HashJoin hj(ts, ts2, 2, 2);
     Print prthj(hj, std::cout);
     prthj.open();
     while (prthj.next()) {
