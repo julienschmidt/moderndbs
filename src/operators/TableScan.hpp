@@ -29,7 +29,7 @@ class TableScan: public Operator {
 };
 
 TableScan::TableScan(Schema::Relation& rel, SPSegment& seg) :
-    seg(seg), bm(seg.bm), attributes(rel.attributes) {
+    seg(seg), bm(seg.bm), bf(NULL), attributes(rel.attributes) {
         regs.resize(attributes.size());
     }
 

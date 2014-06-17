@@ -15,7 +15,7 @@ class BufferFrame {
   public:
     BufferFrame(int segmentFd, uint64_t pageID);
     ~BufferFrame();
-    BufferFrame(BufferFrame& t) = delete;
+    //BufferFrame(BufferFrame& t) = delete;
     BufferFrame& operator=(BufferFrame& rhs) = delete;
     void* getData(); // returns the actual data contained on the page
     uint64_t getID() { return id; }
