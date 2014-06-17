@@ -67,5 +67,11 @@ $ make btree
 $ ./bin/btree 10000
 ```
 
+## [Assignment 05: Operators](https://github.com/julienschmidt/moderndbs/releases/tag/assignment05)
 
+Run with:
+```bash
+$ make operators
+$ ./bin/operators
+```
 
